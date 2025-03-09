@@ -1,0 +1,284 @@
+<!-- templates/dog_classifier.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dog Breed Classifier - Data Science Portfolio</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+    <style>
+        .dropzone {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .dropzone:hover, .dropzone.dragover {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #3b82f6;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    {% include 'navbar.html' %}
+
+    <div class="container mx-auto px-6 py-12">
+        <h1 class="text-4xl font-bold text-center mb-4">Dog Breed Classifier</h1>
+        <p class="text-center text-gray-600 mb-10 max-w-3xl mx-auto">
+            Upload a photo of a dog, and our machine learning model will identify its breed. This model can recognize over 120 different dog breeds with high accuracy.
+        </p>
+
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
+            <div id="upload-container" class="mb-8">
+                <div id="dropzone" class="dropzone p-12 text-center cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p class="text-gray-500 mb-2">Drag and drop an image here, or click to select</p>
+                    <p class="text-gray-400 text-sm">Supported formats: JPG, JPEG, PNG</p>
+                </div>
+                <input type="file" id="file-input" accept=".jpg,.jpeg,.png" class="hidden">
+            </div>
+
+            <div id="preview-container" class="hidden mb-8">
+                <div class="relative">
+                    <img id="preview-image" src="#" alt="Preview" class="w-full h-64 object-contain rounded-lg">
+                    <button id="remove-image" class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 focus:outline-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="submit-container" class="text-center hidden">
+                <button id="classify-button" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300">
+                    Classify Breed
+                </button>
+            </div>
+
+            <div id="loading-container" class="text-center hidden">
+                <div class="spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Analyzing image...</p>
+            </div>
+
+            <div id="results-container" class="hidden">
+                <h3 class="text-xl font-bold mb-4">Results:</h3>
+                <div id="results-content" class="bg-gray-100 p-4 rounded-lg">
+                    <!-- Results will be displayed here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-4xl mx-auto mt-16">
+            <h2 class="text-2xl font-bold mb-6">About This Project</h2>
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <p class="mb-4">
+                    PREDICTION CAN TAKE A WHILE, HOSTED ON A FREE INSTANCE. <br /><br />
+                    This dog breed classification system uses a deep convolutional neural network (CNN) trained on thousands of dog images. The model has been fine-tuned to recognize subtle differences between various dog breeds.
+                </p>
+                <p class="mb-4">
+                    The model architecture is based on a pre-trained ResNet50 backbone with custom classification layers added on top and fine-tuned specifically for dog breed recognition.
+                </p>
+                <p class="mb-4">
+                    The API endpoint is hosted on Render, and this web interface communicates with it to get predictions. The model can identify over 120 different dog breeds with an accuracy of approximately 90% on validation data.
+                </p>
+                <h3 class="text-xl font-bold mt-6 mb-3">Technologies Used:</h3>
+                <ul class="list-disc pl-6 space-y-2">
+                    <li>Python</li>
+                    <li>PyTorch / TensorFlow</li>
+                    <li>FastAPI</li>
+                    <li>Flask</li>
+                    <li>HTML/CSS/JavaScript</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8 mt-16">
+        <div class="container mx-auto px-6 text-center">
+            <p>© 2025 Prashand Ramesar - All Rights Reserved</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropzone = document.getElementById('dropzone');
+            const fileInput = document.getElementById('file-input');
+            const previewContainer = document.getElementById('preview-container');
+            const previewImage = document.getElementById('preview-image');
+            const removeImageBtn = document.getElementById('remove-image');
+            const submitContainer = document.getElementById('submit-container');
+            const classifyButton = document.getElementById('classify-button');
+            const loadingContainer = document.getElementById('loading-container');
+            const resultsContainer = document.getElementById('results-container');
+            const resultsContent = document.getElementById('results-content');
+
+            // Handle click on dropzone
+            dropzone.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            // Handle drag events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dropzone.classList.add('dragover');
+            }
+
+            function unhighlight() {
+                dropzone.classList.remove('dragover');
+            }
+
+            // Handle file drop
+            dropzone.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+
+            // Handle file selection via input
+            fileInput.addEventListener('change', function() {
+                handleFiles(this.files);
+            });
+
+            function handleFiles(files) {
+                if (files.length > 0) {
+                    const file = files[0];
+
+                    // Check if file is an image
+                    if (!file.type.match('image.*')) {
+                        alert('Please select an image file (JPG, JPEG, or PNG).');
+                        return;
+                    }
+
+                    // Display preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImage.src = e.target.result;
+                        previewContainer.classList.remove('hidden');
+                        submitContainer.classList.remove('hidden');
+                        resultsContainer.classList.add('hidden');
+                    }
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            // Remove image
+            removeImageBtn.addEventListener('click', function() {
+                previewContainer.classList.add('hidden');
+                submitContainer.classList.add('hidden');
+                fileInput.value = '';
+            });
+
+            // Classify image
+            classifyButton.addEventListener('click', function() {
+                if (fileInput.files.length === 0) {
+                    alert('Please select an image first.');
+                    return;
+                }
+
+                // Show loading state
+                submitContainer.classList.add('hidden');
+                loadingContainer.classList.remove('hidden');
+                resultsContainer.classList.add('hidden');
+
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                // Send request to our Flask backend
+                fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Hide loading state
+                    loadingContainer.classList.add('hidden');
+
+                    // Display results
+                    if (data.error) {
+                        resultsContent.innerHTML = `<p class="text-red-600">${data.error}</p>`;
+                    } else {
+                        // Format and display prediction results
+                        let resultsHTML = '<div class="space-y-4">';
+
+                        // Display top prediction
+                        if (data.predictions && data.predictions.length > 0) {
+                            const topPrediction = data.predictions[0];
+                            resultsHTML += `
+                                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                    <p class="text-xl font-bold text-blue-800">Top prediction: ${topPrediction.breed}</p>
+                                    <p class="text-lg">Confidence: ${(topPrediction.confidence * 100).toFixed(2)}%</p>
+                                </div>
+                            `;
+
+                            // Display other predictions if available
+                            if (data.predictions.length > 1) {
+                                resultsHTML += '<div class="mt-4"><p class="font-bold mb-2">Other possibilities:</p><ul class="space-y-2">';
+
+                                for (let i = 1; i < Math.min(data.predictions.length, 5); i++) {
+                                    const prediction = data.predictions[i];
+                                    resultsHTML += `
+                                        <li class="flex justify-between">
+                                            <span>${prediction.breed}</span>
+                                            <span class="text-gray-600">${(prediction.confidence * 100).toFixed(2)}%</span>
+                                        </li>
+                                    `;
+                                }
+
+                                resultsHTML += '</ul></div>';
+                            }
+                        } else {
+                            resultsHTML += '<p>No predictions returned from the model.</p>';
+                        }
+
+                        resultsHTML += '</div>';
+                        resultsContent.innerHTML = resultsHTML;
+                    }
+
+                    resultsContainer.classList.remove('hidden');
+                    submitContainer.classList.remove('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    loadingContainer.classList.add('hidden');
+                    resultsContent.innerHTML = `<p class="text-red-600">Error: ${error.message}</p>`;
+                    resultsContainer.classList.remove('hidden');
+                    submitContainer.classList.remove('hidden');
+                });
+            });
+        });
+    </script>
+</body>
+</html>

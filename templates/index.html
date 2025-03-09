@@ -1,0 +1,141 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Science Portfolio - Home</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+</head>
+<body class="bg-gray-100 font-sans">
+    {% include 'navbar.html' %}
+
+    <!-- Hero Section -->
+    <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+        <div class="container mx-auto px-6 py-20">
+            <h1 class="text-5xl font-bold mb-4">Hi, I'm <span class="text-yellow-300">Prashand Ramesar</span></h1>
+            <h2 class="text-3xl mb-8">Data Scientist</h2>
+            <p class="text-xl mb-10 max-w-2xl">
+                I transform data into actionable insights and build intelligent systems that solve real-world problems.
+            </p>
+            <a href="#featured-projects" class="bg-white text-blue-600 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition duration-300">
+                View My Work
+            </a>
+        </div>
+    </div>
+
+    <!-- Featured Projects -->
+    <div id="featured-projects" class="container mx-auto px-6 py-16">
+        <h2 class="text-3xl font-bold text-center mb-12">Featured Projects</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Dog Breed Classifier -->
+            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                <img src="https://images.unsplash.com/photo-1543466835-00a7907e9de1" alt="Dog Breed Classifier" class="w-full h-48 object-cover">
+                <div class="p-6">
+                    <h3 class="text-xl font-bold mb-2">Dog Breed Classifier</h3>
+                    <p class="text-gray-600 mb-4">
+                        A computer vision model that can identify over 120 dog breeds from images with high accuracy.
+                    </p>
+                    <a href="/dog_classifier" class="text-blue-600 font-medium hover:text-blue-800">
+                        Try it out →
+                    </a>
+                </div>
+            </div>
+
+            <!-- Placeholder for other projects -->
+            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                <img src="/static/img/android.png" alt="Project 2" class="w-full h-48 object-cover">
+                <div class="p-6">
+                    <h3 class="text-xl font-bold mb-2">Android app</h3>
+                    <p class="text-gray-600 mb-4">
+                        Created an Android App for the Dog Breed Classifier
+                    </p>
+                    <a href="/android_app" class="text-blue-600 font-medium hover:text-blue-800">
+                        Learn more →
+                    </a>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                <img src="/static/img/flaskhtmlcss.JPG" alt="This website!" class="w-full h-48 object-cover">
+                <div class="p-6">
+                    <h3 class="text-xl font-bold mb-2">This website!</h3>
+                    <p class="text-gray-600 mb-4">
+                        How I built this website in an hour (the answer may shock you).
+                    </p>
+                    <a href="/this_website" class="text-blue-600 font-medium hover:text-blue-800">
+                        Learn more →
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-12">
+            <a href="/projects" class="inline-block border-2 border-blue-600 text-blue-600 font-medium py-2 px-6 rounded-lg hover:bg-blue-600 hover:text-white transition duration-300">
+                View All Projects
+            </a>
+        </div>
+    </div>
+
+    <!-- Skills Section -->
+    <div class="bg-gray-900 text-white py-16">
+        <div class="container mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center mb-12">Skills & Technologies</h2>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div class="text-center">
+                    <div class="bg-blue-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">P</span>
+                    </div>
+                    <h3 class="font-bold mb-2">Python</h3>
+                </div>
+
+                <div class="text-center">
+                    <div class="bg-blue-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">ML</span>
+                    </div>
+                    <h3 class="font-bold mb-2">Machine Learning</h3>
+                </div>
+
+                <div class="text-center">
+                    <div class="bg-blue-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">DL</span>
+                    </div>
+                    <h3 class="font-bold mb-2">Deep Learning</h3>
+                </div>
+
+                <div class="text-center">
+                    <div class="bg-blue-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl">CV</span>
+                    </div>
+                    <h3 class="font-bold mb-2">Computer Vision</h3>
+                </div>
+
+                <!-- Add more skills as needed -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Section -->
+    <div class="container mx-auto px-6 py-16">
+        <h2 class="text-3xl font-bold text-center mb-8">Get In Touch</h2>
+
+        <div class="flex justify-center">
+            <a href="https://www.linkedin.com/in/prashand-ramesar/" target="_blank" class="bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-300 mx-2">
+                LinkedIn
+            </a>
+            <a href="https://github.com/prashandramesar" target="_blank" class="bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-300 mx-2">
+                GitHub
+            </a>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-6 text-center">
+            <p>© 2025 Prashand Ramesar - All Rights Reserved</p>
+        </div>
+    </footer>
+</body>
+</html>
