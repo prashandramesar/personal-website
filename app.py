@@ -1,24 +1,19 @@
-# app.py - Updated for Render.com deployment
-from dog_classifier.app import dog_classifier_app
-from flask import Flask, render_template, request, jsonify, Response
-import requests
 import os
-import time
 import logging
 import sys
-from werkzeug.utils import secure_filename
-
-# Import FastAPI components
-from fastapi import FastAPI, HTTPException, UploadFile
+from flask import render_template, Response, Blueprint
+from fastapi import FastAPI, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import uvicorn
 import io
 import json
 from typing import Any
 import numpy as np
 import tensorflow as tf
 from PIL import Image
-import uvicorn
-import multiprocessing
+import requests
+from werkzeug.utils import secure_filename
 
 # Set up logging
 logging.basicConfig(
@@ -28,38 +23,49 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = "static/uploads"
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max upload
-app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg"}
+# Import the dog_classifier_app blueprint
+try:
+    from dog_classifier.app import dog_classifier_app
+except ImportError as e:
+    logger.error(f"Could not import dog_classifier_app: {e}")
+    # Create a dummy blueprint if import fails
+    dog_classifier_app = Blueprint("dog_classifier", __name__)
 
-# Create upload folder if it doesn't exist
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    @dog_classifier_app.route("/")
+    def dog_classifier_home():
+        return "Dog Classifier Blueprint (dummy)"
 
-app.register_blueprint(dog_classifier_app, url_prefix="/dog-classifier")
 
-# FastAPI app - We'll run this separately
-dog_api = FastAPI(title="Dog Breed Classifier API")
+# Create FastAPI app
+app = FastAPI(title="Combined Flask and FastAPI App")
 
 # Add CORS middleware
-dog_api.add_middleware(
+app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# FastAPI global variables
+# Configuration values
+UPLOAD_FOLDER = "static/uploads"
+MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+
+# Create upload folder if it doesn't exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Global model variables
 model: tf.lite.Interpreter | None = None
 label_map: dict[str, str] | None = None
 input_details: list[dict[str, Any]] | None = None
 output_details: list[dict[str, Any]] | None = None
 
 
-# FastAPI startup event
-@dog_api.on_event("startup")
-async def startup_event() -> None:
+# Load model on startup
+@app.on_event("startup")
+async def startup_event():
     global model, label_map, input_details, output_details
     try:
         # Load the TF Lite model
@@ -75,9 +81,13 @@ async def startup_event() -> None:
         with open("label_map.json") as f:
             label_map = json.load(f)
 
-        logger.info("FastAPI model loaded successfully")
+        logger.info("Model loaded successfully")
     except Exception as e:
         logger.error(f"Error loading model: {e}")
+
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def preprocess_image(
@@ -104,8 +114,16 @@ def preprocess_image(
     return image_array
 
 
-@dog_api.post("/predict/")
-async def predict_dog(file: UploadFile = None) -> dict[str, list[dict[str, Any]]]:
+# FastAPI Endpoints
+
+
+@app.get("/api/dog")
+def read_root():
+    return {"message": "Welcome to the Dog Breed Classifier API"}
+
+
+@app.post("/api/dog/predict")
+async def predict_dog(file: UploadFile = None):
     """
     Predict the dog breed from an uploaded image.
     """
@@ -139,183 +157,62 @@ async def predict_dog(file: UploadFile = None) -> dict[str, list[dict[str, Any]]
     return {"predictions": top_3_predictions}
 
 
-@dog_api.get("/")
-def read_root() -> dict[str, str]:
-    return {"message": "Welcome to the Dog Breed Classifier API"}
+# Flask-like routes for FastAPI
 
 
-# Function to run FastAPI in a separate process
-def run_fastapi():
-    # Use the port from the environment or default to 8000
-    port = int(os.environ.get("FASTAPI_PORT", 8000))
-    logger.info(f"Starting FastAPI on port {port}")
-    try:
-        uvicorn.run(dog_api, host="0.0.0.0", port=port)
-    except Exception as e:
-        logger.error(f"Error starting FastAPI: {e}")
+@app.get("/")
+async def home():
+    return Response(render_template("index.html"), media_type="text/html")
 
 
-# Determine if we're in production or development
-def is_production():
-    # Check for common environment variables set in production
-    return (
-        os.environ.get("PRODUCTION", "").lower() == "true"
-        or os.environ.get("ENVIRONMENT", "").lower() == "production"
-        or os.environ.get("RENDER", "").lower() == "true"
-    )  # Render-specific
+@app.get("/projects")
+async def projects():
+    return Response(render_template("projects.html"), media_type="text/html")
 
 
-# Configure the FastAPI URL based on environment
-# IMPORTANT CHANGE: Use localhost in all environments
-if is_production():
-    # For Render.com, use localhost instead of IP
-    FASTAPI_PORT = int(os.environ.get("FASTAPI_PORT", 8000))
-    FASTAPI_URL = f"http://localhost:{FASTAPI_PORT}"
-    logger.info(f"Production mode: FastAPI URL set to {FASTAPI_URL}")
-else:
-    # In development, use localhost as well
-    FASTAPI_URL = "http://localhost:8000"
-    logger.info(f"Development mode: FastAPI URL set to {FASTAPI_URL}")
+@app.get("/dog_classifier")
+async def dog_classifier():
+    return Response(render_template("dog_classifier.html"), media_type="text/html")
 
 
-def allowed_file(filename):
-    return (
-        "." in filename
-        and filename.rsplit(".", 1)[1].lower() in app.config["ALLOWED_EXTENSIONS"]
-    )
+@app.get("/about")
+async def about():
+    return Response(render_template("about.html"), media_type="text/html")
 
 
-# Add a health check endpoint to your Flask app
-@app.route("/health")
-def health_check():
-    # Check if we can connect to FastAPI
-    try:
-        logger.info(f"Health check connecting to FastAPI at {FASTAPI_URL}")
-        resp = requests.get(f"{FASTAPI_URL}/", timeout=5)
-        fastapi_status = resp.status_code == 200
-        logger.info(
-            f"FastAPI health check result: {fastapi_status}, status code: {resp.status_code}"
-        )
-    except requests.RequestException as e:
-        logger.warning(f"FastAPI health check failed: {e}")
-        fastapi_status = False
-
-    return jsonify(
-        {
-            "status": "healthy",
-            "flask": True,
-            "fastapi": fastapi_status,
-            "fastapi_url": FASTAPI_URL,
-        }
-    )
+@app.get("/android_app")
+async def android_app():
+    return Response(render_template("android_app.html"), media_type="text/html")
 
 
-# Proxy routes for FastAPI with improved error handling
-@app.route("/api/dog/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
-def proxy_to_fastapi(path):
-    # Forward the request to FastAPI
-    url = f"{FASTAPI_URL}/{path}"
-    logger.info(f"Proxying request to {url}")
-
-    # Extract headers, excluding Host which would cause issues
-    headers = {
-        key: value for (key, value) in request.headers.items() if key.lower() != "host"
-    }
-
-    # Forward the request with appropriate method
-    try:
-        if request.method == "GET":
-            resp = requests.get(url, headers=headers, params=request.args, timeout=10)
-        elif request.method == "POST":
-            # Handle file uploads specially
-            if request.files:
-                files = {
-                    name: (file.filename, file.read())
-                    for name, file in request.files.items()
-                }
-                resp = requests.post(
-                    url, headers=headers, files=files, data=request.form, timeout=10
-                )
-            else:
-                resp = requests.post(
-                    url, headers=headers, json=request.get_json(), timeout=10
-                )
-        elif request.method == "PUT":
-            resp = requests.put(
-                url, headers=headers, json=request.get_json(), timeout=10
-            )
-        elif request.method == "DELETE":
-            resp = requests.delete(url, headers=headers, timeout=10)
-        else:
-            return Response("Method not allowed", status=405)
-
-        logger.info(f"Proxy request to {url} completed with status {resp.status_code}")
-
-        # Return the FastAPI response through Flask
-        return Response(
-            resp.content,
-            status=resp.status_code,
-            content_type=resp.headers.get("content-type", "text/plain"),
-        )
-    except requests.RequestException as e:
-        logger.error(f"Proxy request to {url} failed: {e}")
-        return jsonify(
-            {"error": f"Failed to connect to FastAPI service: {str(e)}"}
-        ), 503
+@app.get("/this_website")
+async def this_website():
+    return Response(render_template("this_website.html"), media_type="text/html")
 
 
-@app.route("/api/dog", defaults={"path": ""})
-def proxy_root(path):
-    return proxy_to_fastapi(path)
+@app.post("/predict")
+async def predict(request: Request):
+    # Get the form data
+    form = await request.form()
 
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-
-@app.route("/projects")
-def projects():
-    return render_template("projects.html")
-
-
-@app.route("/dog_classifier")
-def dog_classifier():
-    return render_template("dog_classifier.html")
-
-
-@app.route("/about")
-def about():
-    return render_template("about.html")
-
-
-@app.route("/android_app")
-def android_app():
-    return render_template("android_app.html")
-
-
-@app.route("/this_website")
-def this_website():
-    return render_template("this_website.html")
-
-
-@app.route("/predict", methods=["POST"])
-def predict():
     # Check if an image was uploaded
-    if "file" not in request.files:
-        return jsonify({"error": "No file part"})
+    if "file" not in form:
+        return JSONResponse({"error": "No file part"})
 
-    file = request.files["file"]
+    file = form["file"]
 
     # Check if the user submitted an empty form
     if file.filename == "":
-        return jsonify({"error": "No selected file"})
+        return JSONResponse({"error": "No selected file"})
 
     if file and allowed_file(file.filename):
         # Save the uploaded file
+        contents = await file.read()
         filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(filepath)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+        with open(filepath, "wb") as f:
+            f.write(contents)
 
         # Send the image to your deployed model
         with open(filepath, "rb") as img_file:
@@ -326,58 +223,27 @@ def predict():
 
         # Return the prediction results
         if response.status_code == 200:
-            return jsonify(response.json())
+            return JSONResponse(response.json())
         else:
-            return jsonify(
+            return JSONResponse(
                 {"error": f"Model API returned error: {response.status_code}"}
             )
 
-    return jsonify({"error": "Invalid file type. Allowed types: png, jpg, jpeg"})
+    return JSONResponse({"error": "Invalid file type. Allowed types: png, jpg, jpeg"})
 
 
-# For production platforms like Heroku
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "flask_routes": True,
+        "fastapi_routes": True,
+        "model_loaded": model is not None,
+    }
+
+
+# Make it compatible with render.com and other hosting providers
 if __name__ == "__main__":
-    # Get the port from the environment
     port = int(os.environ.get("PORT", 10000))
-    logger.info(f"Starting Flask app on port {port}")
-
-    # Start FastAPI in a separate process if we're not in production
-    # For some platforms (like Heroku), you might want to run only Flask
-    if not is_production():
-        fastapi_process = multiprocessing.Process(target=run_fastapi)
-        fastapi_process.daemon = (
-            True  # This ensures the process will die when the main process exits
-        )
-        fastapi_process.start()
-        # Give FastAPI time to start up
-        time.sleep(1)
-    else:
-        # Start FastAPI in a separate process even in production
-        logger.info("Starting FastAPI in production mode")
-        fastapi_process = multiprocessing.Process(target=run_fastapi)
-        fastapi_process.daemon = (
-            True  # This ensures the process will die when the main process exits
-        )
-        fastapi_process.start()
-        # Give FastAPI time to start up
-        time.sleep(2)
-        logger.info("FastAPI process started, checking health...")
-        try:
-            response = requests.get(f"{FASTAPI_URL}/", timeout=5)
-            logger.info(f"FastAPI health check: {response.status_code}")
-        except Exception as e:
-            logger.error(f"FastAPI health check failed: {e}")
-
-    # Run Flask app
-    try:
-        app.run(host="0.0.0.0", port=port)
-    finally:
-        # Make sure to clean up the FastAPI process
-        if (
-            "fastapi_process" in locals()
-            and fastapi_process
-            and fastapi_process.is_alive()
-        ):
-            logger.info("Shutting down FastAPI process")
-            fastapi_process.terminate()
-            fastapi_process.join()
+    logger.info(f"Starting application on port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)

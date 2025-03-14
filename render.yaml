@@ -1,12 +1,11 @@
 services:
-  # Web service (Flask app)
+  # Web service
   - type: web
-    name: your-website-name
+    name: prashand.nl
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: ./start.sh
+    healthCheckPath: /health
     envVars:
       - key: PRODUCTION
         value: true
-      - key: FASTAPI_PORT
-        value: 8000
