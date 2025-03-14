@@ -1,10 +1,11 @@
+# single_process_app.py
 import os
 import logging
 import sys
-from flask import render_template, Response, Blueprint
+from flask import Flask, render_template, Blueprint
 from fastapi import FastAPI, HTTPException, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 import uvicorn
 import io
 import json
@@ -14,6 +15,7 @@ import tensorflow as tf
 from PIL import Image
 import requests
 from werkzeug.utils import secure_filename
+from fastapi.staticfiles import StaticFiles
 
 # Set up logging
 logging.basicConfig(
@@ -23,9 +25,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Create a Flask app for template rendering
+flask_app = Flask(__name__)
+flask_app.config["UPLOAD_FOLDER"] = "static/uploads"
+flask_app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+flask_app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg"}
+
 # Import the dog_classifier_app blueprint
 try:
     from dog_classifier.app import dog_classifier_app
+
+    flask_app.register_blueprint(dog_classifier_app, url_prefix="/dog-classifier")
 except ImportError as e:
     logger.error(f"Could not import dog_classifier_app: {e}")
     # Create a dummy blueprint if import fails
@@ -35,6 +45,7 @@ except ImportError as e:
     def dog_classifier_home():
         return "Dog Classifier Blueprint (dummy)"
 
+    flask_app.register_blueprint(dog_classifier_app, url_prefix="/dog-classifier")
 
 # Create FastAPI app
 app = FastAPI(title="Combined Flask and FastAPI App")
@@ -48,9 +59,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Configuration values
 UPLOAD_FOLDER = "static/uploads"
-MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 
 # Create upload folder if it doesn't exist
@@ -114,6 +127,12 @@ def preprocess_image(
     return image_array
 
 
+# Helper function to render templates with Flask
+def render_flask_template(template_name, **context):
+    with flask_app.app_context():
+        return render_template(template_name, **context)
+
+
 # FastAPI Endpoints
 
 
@@ -160,34 +179,41 @@ async def predict_dog(file: UploadFile = None):
 # Flask-like routes for FastAPI
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def home():
-    return Response(render_template("index.html"), media_type="text/html")
+    try:
+        html_content = render_flask_template("index.html")
+        return HTMLResponse(content=html_content)
+    except Exception as e:
+        logger.error(f"Error rendering home template: {e}")
+        return HTMLResponse(
+            content=f"<html><body><h1>Error</h1><p>{str(e)}</p></body></html>"
+        )
 
 
-@app.get("/projects")
+@app.get("/projects", response_class=HTMLResponse)
 async def projects():
-    return Response(render_template("projects.html"), media_type="text/html")
+    return HTMLResponse(content=render_flask_template("projects.html"))
 
 
-@app.get("/dog_classifier")
+@app.get("/dog_classifier", response_class=HTMLResponse)
 async def dog_classifier():
-    return Response(render_template("dog_classifier.html"), media_type="text/html")
+    return HTMLResponse(content=render_flask_template("dog_classifier.html"))
 
 
-@app.get("/about")
+@app.get("/about", response_class=HTMLResponse)
 async def about():
-    return Response(render_template("about.html"), media_type="text/html")
+    return HTMLResponse(content=render_flask_template("about.html"))
 
 
-@app.get("/android_app")
+@app.get("/android_app", response_class=HTMLResponse)
 async def android_app():
-    return Response(render_template("android_app.html"), media_type="text/html")
+    return HTMLResponse(content=render_flask_template("android_app.html"))
 
 
-@app.get("/this_website")
+@app.get("/this_website", response_class=HTMLResponse)
 async def this_website():
-    return Response(render_template("this_website.html"), media_type="text/html")
+    return HTMLResponse(content=render_flask_template("this_website.html"))
 
 
 @app.post("/predict")
