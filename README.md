@@ -28,8 +28,8 @@ All components run in a single process, making it easier to deploy on platforms 
 | `/projects` | GET | Projects overview |
 | `/about` | GET | About page |
 | `/api/dog` | GET | API root with welcome message |
-| `/api/dog/predict` | POST | Dog breed prediction endpoint |
-| `/predict` | POST | Alternative prediction endpoint |
+| `/api/dog/predict` | POST | Dog breed prediction endpoint (FastAPI) |
+| `/predict` | POST | Alternative prediction endpoint (FastAPI) |
 | `/health` | GET | Health check endpoint |
 
 ## Dog Breed Classifier
@@ -46,7 +46,7 @@ with open("your_dog_image.jpg", "rb") as image_file:
     files = {"file": ("your_dog_image.jpg", image_file, "image/jpeg")}
 
     # Send the request
-    response = requests.post("https://example.com/api/dog/predict", files=files)
+    response = requests.post("https://prashand.nl/api/dog/predict", files=files)
 
     # Process the results
     if response.status_code == 200:
@@ -54,6 +54,13 @@ with open("your_dog_image.jpg", "rb") as image_file:
         for prediction in predictions:
             print(f"{prediction['breed']}: {prediction['confidence'] * 100:.2f}%")
 ```
+
+## Important Implementation Details
+
+- The application uses a single-process architecture where FastAPI handles all HTTP requests
+- Flask is used internally for template rendering
+- Prediction is done directly using the TensorFlow Lite model without making additional HTTP requests
+- Both `/api/dog/predict` and `/predict` endpoints use the same underlying model for predictions
 
 ## Development Setup
 
@@ -111,7 +118,6 @@ The application is designed to be easily deployed on Render.com or similar platf
 ## Project Structure
 
 ```
-├── app.py                    # Legacy Flask application (for reference)
 ├── single_process_app.py     # Main application file
 ├── start.sh                  # Startup script for deployment
 ├── requirements.txt          # Python dependencies

@@ -13,7 +13,6 @@ from typing import Any
 import numpy as np
 import tensorflow as tf
 from PIL import Image
-import requests
 from werkzeug.utils import secure_filename
 from fastapi.staticfiles import StaticFiles
 
@@ -240,18 +239,36 @@ async def predict(request: Request):
         with open(filepath, "wb") as f:
             f.write(contents)
 
-        # Send the image to your deployed model
-        with open(filepath, "rb") as img_file:
-            files = {"file": (filename, img_file, "multipart/form-data")}
-            response = requests.post("https://prashand.nl/predict", files=files)
+        # Add explicit check for model and related variables
+        if (
+            model is None
+            or input_details is None
+            or output_details is None
+            or label_map is None
+        ):
+            return JSONResponse({"error": "Model not initialized"})
 
-        # Return the prediction results
-        if response.status_code == 200:
-            return JSONResponse(response.json())
-        else:
-            return JSONResponse(
-                {"error": f"Model API returned error: {response.status_code}"}
-            )
+        image = Image.open(filepath)
+        processed_image = preprocess_image(image)
+
+        assert model is not None
+        assert input_details is not None
+        assert output_details is not None
+        assert label_map is not None
+
+        # Make prediction using TF Lite
+        model.set_tensor(input_details[0]["index"], processed_image)
+        model.invoke()
+        predictions = model.get_tensor(output_details[0]["index"])
+
+        # Get top 3 predictions
+        top_3_indices = np.argsort(predictions[0])[-3:][::-1]
+        top_3_predictions = [
+            {"breed": label_map[str(idx)], "confidence": float(predictions[0][idx])}
+            for idx in top_3_indices
+        ]
+
+        return JSONResponse({"predictions": top_3_predictions})
 
     return JSONResponse({"error": "Invalid file type. Allowed types: png, jpg, jpeg"})
 
