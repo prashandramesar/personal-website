@@ -1,12 +1,11 @@
-# For deployment to platforms like Heroku, render.com, etc.
-
-# app.py - main application file
+# app.py - Updated for Render.com deployment
 from dog_classifier.app import dog_classifier_app
 from flask import Flask, render_template, request, jsonify, Response
 import requests
 import os
 import time
-import socket
+import logging
+import sys
 from werkzeug.utils import secure_filename
 
 # Import FastAPI components
@@ -20,9 +19,6 @@ import tensorflow as tf
 from PIL import Image
 import uvicorn
 import multiprocessing
-
-import logging
-import sys
 
 # Set up logging
 logging.basicConfig(
@@ -78,8 +74,10 @@ async def startup_event() -> None:
         # Load the label map
         with open("label_map.json") as f:
             label_map = json.load(f)
+
+        logger.info("FastAPI model loaded successfully")
     except Exception as e:
-        print(f"Error loading model: {e}")
+        logger.error(f"Error loading model: {e}")
 
 
 def preprocess_image(
@@ -167,29 +165,17 @@ def is_production():
     )  # Render-specific
 
 
-# Function to get the host's IP address
-def get_host_ip():
-    try:
-        # This gets the host name of the machine
-        hostname = socket.gethostname()
-        # This gets the IP address of the machine
-        ip_address = socket.gethostbyname(hostname)
-        return ip_address
-    except (socket.gaierror, socket.herror, socket.error) as e:
-        logger.warning(f"Could not determine host IP: {e}")
-        return "127.0.0.1"  # Fallback to localhost
-
-
 # Configure the FastAPI URL based on environment
+# IMPORTANT CHANGE: Use localhost in all environments
 if is_production():
-    # In production, FastAPI is running on the same server
+    # For Render.com, use localhost instead of IP
     FASTAPI_PORT = int(os.environ.get("FASTAPI_PORT", 8000))
-    FASTAPI_URL = f"http://{get_host_ip()}:{FASTAPI_PORT}"
+    FASTAPI_URL = f"http://localhost:{FASTAPI_PORT}"
+    logger.info(f"Production mode: FastAPI URL set to {FASTAPI_URL}")
 else:
-    # In development, use localhost
+    # In development, use localhost as well
     FASTAPI_URL = "http://localhost:8000"
-
-print(f"FastAPI URL configured as: {FASTAPI_URL}")
+    logger.info(f"Development mode: FastAPI URL set to {FASTAPI_URL}")
 
 
 def allowed_file(filename):
@@ -199,11 +185,37 @@ def allowed_file(filename):
     )
 
 
-# Proxy routes for FastAPI
+# Add a health check endpoint to your Flask app
+@app.route("/health")
+def health_check():
+    # Check if we can connect to FastAPI
+    try:
+        logger.info(f"Health check connecting to FastAPI at {FASTAPI_URL}")
+        resp = requests.get(f"{FASTAPI_URL}/", timeout=5)
+        fastapi_status = resp.status_code == 200
+        logger.info(
+            f"FastAPI health check result: {fastapi_status}, status code: {resp.status_code}"
+        )
+    except requests.RequestException as e:
+        logger.warning(f"FastAPI health check failed: {e}")
+        fastapi_status = False
+
+    return jsonify(
+        {
+            "status": "healthy",
+            "flask": True,
+            "fastapi": fastapi_status,
+            "fastapi_url": FASTAPI_URL,
+        }
+    )
+
+
+# Proxy routes for FastAPI with improved error handling
 @app.route("/api/dog/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
 def proxy_to_fastapi(path):
     # Forward the request to FastAPI
     url = f"{FASTAPI_URL}/{path}"
+    logger.info(f"Proxying request to {url}")
 
     # Extract headers, excluding Host which would cause issues
     headers = {
@@ -237,13 +249,16 @@ def proxy_to_fastapi(path):
         else:
             return Response("Method not allowed", status=405)
 
+        logger.info(f"Proxy request to {url} completed with status {resp.status_code}")
+
         # Return the FastAPI response through Flask
         return Response(
             resp.content,
             status=resp.status_code,
             content_type=resp.headers.get("content-type", "text/plain"),
         )
-    except requests.exceptions.RequestException as e:
+    except requests.RequestException as e:
+        logger.error(f"Proxy request to {url} failed: {e}")
         return jsonify(
             {"error": f"Failed to connect to FastAPI service: {str(e)}"}
         ), 503
@@ -320,23 +335,11 @@ def predict():
     return jsonify({"error": "Invalid file type. Allowed types: png, jpg, jpeg"})
 
 
-@app.route("/health")
-def health_check():
-    # Check if we can connect to FastAPI
-    try:
-        resp = requests.get(f"{FASTAPI_URL}/", timeout=5)
-        fastapi_status = resp.status_code == 200
-    except requests.RequestException as e:
-        logger.warning(f"FastAPI health check failed: {e}")
-        fastapi_status = False
-
-    return jsonify({"status": "healthy", "flask": True, "fastapi": fastapi_status})
-
-
 # For production platforms like Heroku
 if __name__ == "__main__":
     # Get the port from the environment
     port = int(os.environ.get("PORT", 10000))
+    logger.info(f"Starting Flask app on port {port}")
 
     # Start FastAPI in a separate process if we're not in production
     # For some platforms (like Heroku), you might want to run only Flask
@@ -348,6 +351,22 @@ if __name__ == "__main__":
         fastapi_process.start()
         # Give FastAPI time to start up
         time.sleep(1)
+    else:
+        # Start FastAPI in a separate process even in production
+        logger.info("Starting FastAPI in production mode")
+        fastapi_process = multiprocessing.Process(target=run_fastapi)
+        fastapi_process.daemon = (
+            True  # This ensures the process will die when the main process exits
+        )
+        fastapi_process.start()
+        # Give FastAPI time to start up
+        time.sleep(2)
+        logger.info("FastAPI process started, checking health...")
+        try:
+            response = requests.get(f"{FASTAPI_URL}/", timeout=5)
+            logger.info(f"FastAPI health check: {response.status_code}")
+        except Exception as e:
+            logger.error(f"FastAPI health check failed: {e}")
 
     # Run Flask app
     try:
@@ -355,10 +374,10 @@ if __name__ == "__main__":
     finally:
         # Make sure to clean up the FastAPI process
         if (
-            not is_production()
-            and "fastapi_process" in locals()
+            "fastapi_process" in locals()
             and fastapi_process
             and fastapi_process.is_alive()
         ):
+            logger.info("Shutting down FastAPI process")
             fastapi_process.terminate()
             fastapi_process.join()

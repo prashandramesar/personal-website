@@ -16,22 +16,11 @@ fi
 mkdir -p static/uploads
 echo "Created uploads directory"
 
-# Start FastAPI in the background with proper logging
-echo "Starting FastAPI service on port $FASTAPI_PORT..."
-python -c "from app import dog_api; import uvicorn; uvicorn.run(dog_api, host='0.0.0.0', port=$FASTAPI_PORT)" > fastapi.log 2>&1 &
-FASTAPI_PID=$!
+# Set the FastAPI port
+export FASTAPI_PORT=${FASTAPI_PORT:-8000}
 
-# Give FastAPI time to start up
-echo "Waiting for FastAPI to initialize..."
-sleep 5
-
-# Check if FastAPI started successfully
-if ps -p $FASTAPI_PID > /dev/null; then
-  echo "FastAPI started successfully (PID: $FASTAPI_PID)"
-else
-  echo "WARNING: FastAPI failed to start. Check logs for details."
-  cat fastapi.log
-fi
+# Note: We are NOT starting FastAPI as a separate process here
+# because we're now starting it within the app.py script for better process management
 
 # Start Flask app (gunicorn)
 echo "Starting Flask app with gunicorn..."
