@@ -34,7 +34,7 @@ flask_app.config["ALLOWED_EXTENSIONS"] = {"png", "jpg", "jpeg"}
 try:
     from dog_classifier.app import dog_classifier_app
 
-    flask_app.register_blueprint(dog_classifier_app, url_prefix="/dog-classifier")
+    flask_app.register_blueprint(dog_classifier_app, url_prefix="/dog_classifier")
 except ImportError as e:
     logger.error(f"Could not import dog_classifier_app: {e}")
     # Create a dummy blueprint if import fails
@@ -44,7 +44,7 @@ except ImportError as e:
     def dog_classifier_home():
         return "Dog Classifier Blueprint (dummy)"
 
-    flask_app.register_blueprint(dog_classifier_app, url_prefix="/dog-classifier")
+    flask_app.register_blueprint(dog_classifier_app, url_prefix="/dog_classifier")
 
 # Create FastAPI app
 app = FastAPI(title="Combined Flask and FastAPI App")
