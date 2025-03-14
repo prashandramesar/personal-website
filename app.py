@@ -243,9 +243,7 @@ async def predict(request: Request):
         # Send the image to your deployed model
         with open(filepath, "rb") as img_file:
             files = {"file": (filename, img_file, "multipart/form-data")}
-            response = requests.post(
-                "https://dog-breed-model.onrender.com/predict/", files=files
-            )
+            response = requests.post("https://prashand.nl/predict", files=files)
 
         # Return the prediction results
         if response.status_code == 200:
