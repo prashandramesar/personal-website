@@ -1,0 +1,11 @@
+services:
+  # Web service
+  - type: web
+    name: prashand.nl
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: ./start.sh
+    healthCheckPath: /health
+    envVars:
+      - key: PRODUCTION
+        value: true
