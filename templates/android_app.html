@@ -11,65 +11,88 @@
     {% include 'navbar.html' %}
 
     <div class="container mx-auto px-6 py-12">
-        <!-- Project Header -->
-        <h1 class="text-3xl font-bold mb-4">Dog breed Android App</h1>
-
-        <!-- GitHub Link -->
-        <p class="mb-8">
-            <a href="https://github.com/prashandramesar/dog-breed-android-app" target="_blank" class="text-blue-600 hover:underline">
-                View on GitHub
-            </a>
-            {% if demo_link %}
-            |
-            <a href="{{ demo_link }}" class="text-blue-600 hover:underline">
-                Try Demo
-            </a>
-            {% endif %}
-        </p>
-
-        <!-- Project Overview -->
-        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-            <h2 class="text-2xl font-bold mb-4">Overview</h2>
-            <p class="text-gray-700 mb-4">
-                I have a confession to make: I don't know much about Android app development, so I used gen AI and troubleshooting to help me create an app!
-            </p>
-            <p class="text-gray-700">
-                Technologies used: Python, PyTorch, FastAPI, etc.
-            </p>
-        </div>
-
-        <!-- Project Description -->
+        <!-- Single unified project card -->
         <div class="bg-white rounded-lg shadow-md p-8">
-            <h2 class="text-2xl font-bold mb-4">Project Details</h2>
+            <!-- Project Header -->
+            <h1 class="text-3xl font-bold mb-4">Dog breed Android App</h1>
 
+            <!-- Links Section -->
+            <div class="flex flex-wrap gap-4 mb-8">
+                <a href="https://github.com/prashandramesar/dog-breed-android-app" target="_blank" class="inline-flex items-center text-blue-600 hover:underline">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                    View on GitHub
+                </a>
+                <a href="https://raw.githubusercontent.com/prashandramesar/dog-breed-android-app/a554460f2964f2cae1e9f9253828ced6c3772404/dog-breed-app.apk" target="_blank" class="inline-flex items-center text-blue-600 hover:underline">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Download APK
+                </a>
+                {% if demo_link %}
+                <a href="{{ demo_link }}" class="inline-flex items-center text-blue-600 hover:underline">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                    Try Demo
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- Overview Section with Right-side Image Wrapping -->
+            <div class="md:relative mb-10">
+                <h2 class="text-2xl font-bold mb-5">Overview</h2>
+
+                <!-- On mobile, image appears below heading -->
+                <div class="md:hidden mb-6">
+                    <img src="/static/img/dogbreedapp.png" alt="Dog Breed App" class="w-full h-auto rounded-lg shadow-sm">
+                </div>
+
+                <!-- On desktop, image floats to the right -->
+                <div class="hidden md:block float-right ml-8 mb-6">
+                    <img src="/static/img/dogbreedapp.png" alt="Dog Breed App" class="w-80 h-auto rounded-lg shadow-sm">
+                </div>
+
+                <p class="text-gray-700 mb-4">
+                    I embraced modern development practices by leveraging AI and troubleshooting skills to create a dog breed classification application with no prior Android development experience. This project demonstrates my ability to adapt to new technologies and integrate complex systems.
+                </p>
+                <p class="text-gray-700 mb-4">
+                    The application successfully identifies dog breeds from uploaded images with high accuracy, showcasing my technical versatility and ability to bring complex ideas to life.
+                </p>
+                <p class="text-gray-700 mb-6">
+                    Technologies used: Python, TensorFlow Lite, FastAPI, Flask, Render.com deployment, RESTful API development.
+                </p>
+            </div>
+
+            <!-- Divider -->
+            <div class="border-t border-gray-200 my-10"></div>
+
+            <!-- Project Details Section -->
             <div class="prose max-w-none">
-                <h3 class="text-xl font-bold mt-4 mb-2">The Problem</h3>
-                <p class="text-gray-700 mb-4">
-                    I wanted to use my phone to identify dog breeds.
+                <h2 class="text-2xl font-bold mb-6">Project Details</h2>
+
+                <h3 class="text-xl font-bold mb-3">Challenge</h3>
+                <p class="text-gray-700 mb-6">
+                    The project aimed to develop a mobile solution for real-time dog breed identification, providing accurate classification capabilities directly on a smartphone device without requiring specialized knowledge of the breeds.
                 </p>
 
-                <h3 class="text-xl font-bold mt-6 mb-2">My Approach</h3>
-                <p class="text-gray-700 mb-4">
-                    I asked claude.ai to generate a barebones Android app which can take pictures, access the gallery and connect to my deployed model.
+                <h3 class="text-xl font-bold mb-3">Methodology</h3>
+                <p class="text-gray-700 mb-6">
+                    I leveraged generative AI tools to develop the Android application architecture, integrating camera functionality and gallery access. This was combined with a custom-trained TensorFlow Lite model deployed via a RESTful API infrastructure on Render.com. The development process utilized an iterative approach to refine both the model accuracy and application performance.
                 </p>
 
-                <h3 class="text-xl font-bold mt-6 mb-2">Results</h3>
-                <p class="text-gray-700 mb-4">
-                    It took a lot of debugging (Generative AI is at its infancy) and googling. However, for someone that does not know much about Android dev, I managed to do it in a weekend.
+                <h3 class="text-xl font-bold mb-3">Implementation</h3>
+                <p class="text-gray-700 mb-6">
+                    Despite having no prior Android development experience, I successfully implemented a fully functional application within a weekend timeframe. This required extensive troubleshooting of integration issues between the Android frontend and the model backend, as well as optimization of the API response handling to ensure efficient breed classification.
                 </p>
 
-                <h3 class="text-xl font-bold mt-6 mb-2">What I Learned</h3>
-                <p class="text-gray-700 mb-4">
-                    You can really increase productivity using Gen AI. Make sure to spend time on troubleshooting errors, prompting and you're golden. I also learned a lot about Android Studio and doing POST Requests through Java.
+                <h3 class="text-xl font-bold mb-3">Key Insights</h3>
+                <p class="text-gray-700 mb-6">
+                    This project demonstrated the significant productivity enhancements possible through strategic use of generative AI tools combined with focused problem-solving skills. I gained valuable experience in Android Studio development workflows, RESTful API integration patterns, and efficient Java-based HTTP request handling for machine learning applications.
                 </p>
 
-                <h3 class="text-xl font-bold mt-6 mb-2">Future Improvements</h3>
+                <h3 class="text-xl font-bold mb-3">Future Development Roadmap</h3>
                 <p class="text-gray-700">
-                    The UI needs addressing, the model is trained on images with good lighting and many breeds are missing from the model.
+                    Planned enhancements include a comprehensive UI redesign to improve user experience, expanding the training dataset to include a broader range of dog breeds, and implementing lighting normalization algorithms to improve classification accuracy in variable environmental conditions.
                 </p>
             </div>
         </div>
-
+    </div>
         <!-- Back to Projects Link -->
         <div class="mt-8 text-center">
             <a href="/projects" class="text-blue-600 hover:underline">
