@@ -95,7 +95,7 @@ with open("your_dog_image.jpg", "rb") as image_file:
 
 5. Run the application:
    ```bash
-   python single_process_app.py
+   python app.py
    ```
 
 The application will be available at http://localhost:10000
