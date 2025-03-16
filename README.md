@@ -118,7 +118,7 @@ The application is designed to be easily deployed on Render.com or similar platf
 ## Project Structure
 
 ```
-├── single_process_app.py     # Main application file
+├── app.py     # Main application file
 ├── start.sh                  # Startup script for deployment
 ├── requirements.txt          # Python dependencies
 ├── static/                   # Static files (CSS, JS, images)
