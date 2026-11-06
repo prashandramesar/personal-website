@@ -75,3 +75,12 @@ venv.bak/
 *.sqlite
 *.db
 *.sql
+
+# Python tooling
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Anything placed in the old public upload folder
+static/uploads/

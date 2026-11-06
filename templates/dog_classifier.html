@@ -1,11 +1,8 @@
-<!-- templates/dog_classifier.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dog Breed Classifier - Data Science Portfolio</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+{% extends 'base.html' %}
+
+{% block title %}Dog Breed Classifier - Data Science Portfolio{% endblock %}
+
+{% block head %}
     <style>
         .dropzone {
             border: 2px dashed #ccc;
@@ -29,14 +26,15 @@
             100% { transform: rotate(360deg); }
         }
     </style>
-</head>
-<body class="bg-gray-100 font-sans">
-    {% include 'navbar.html' %}
+{% endblock %}
 
+{% block footer_margin %}mt-16{% endblock %}
+
+{% block content %}
     <div class="container mx-auto px-6 py-12">
         <h1 class="text-4xl font-bold text-center mb-4">Dog Breed Classifier</h1>
         <p class="text-center text-gray-600 mb-10 max-w-3xl mx-auto">
-            Upload a photo of a dog, and our machine learning model will identify its breed. This model can recognize over 120 different dog breeds with high accuracy.
+            Upload a photo of a dog, and our machine learning model will identify its breed. This model can recognize 120 different dog breeds.
         </p>
 
         <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
@@ -88,15 +86,15 @@
                     This dog breed classification system uses a deep convolutional neural network (CNN) trained on thousands of dog images. The model has been fine-tuned to recognize subtle differences between various dog breeds.
                 </p>
                 <p class="mb-4">
-                    The model architecture is based on a pre-trained ResNet50 backbone with custom classification layers added on top and fine-tuned specifically for dog breed recognition.
+                    The model architecture is based on a pre-trained MobileNetV2 backbone with custom classification layers added on top, fine-tuned for dog breed recognition and converted to a quantized TensorFlow Lite model.
                 </p>
                 <p class="mb-4">
-                    The API endpoint is hosted on Render, and this web interface communicates with it to get predictions. The model can identify over 120 different dog breeds with an accuracy of approximately 90% on validation data.
+                    The model runs on the same Render service as this website and can identify 120 different dog breeds.
                 </p>
                 <h3 class="text-xl font-bold mt-6 mb-3">Technologies Used:</h3>
                 <ul class="list-disc pl-6 space-y-2">
                     <li>Python</li>
-                    <li>PyTorch / TensorFlow</li>
+                    <li>TensorFlow / TensorFlow Lite</li>
                     <li>FastAPI</li>
                     <li>Flask</li>
                     <li>HTML/CSS/JavaScript</li>
@@ -104,14 +102,9 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <!-- Footer -->
-    <footer class="bg-gray-800 text-white py-8 mt-16">
-        <div class="container mx-auto px-6 text-center">
-            <p>© 2025 Prashand Ramesar - All Rights Reserved</p>
-        </div>
-    </footer>
-
+{% block scripts %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const dropzone = document.getElementById('dropzone');
@@ -124,6 +117,12 @@
             const loadingContainer = document.getElementById('loading-container');
             const resultsContainer = document.getElementById('results-container');
             const resultsContent = document.getElementById('results-content');
+
+            // Below this, the photo probably doesn't show a dog the model knows.
+            const LOW_CONFIDENCE = 0.3;
+
+            // Set by both the file picker and drag-and-drop.
+            let selectedFile = null;
 
             // Handle click on dropzone
             dropzone.addEventListener('click', function() {
@@ -174,11 +173,12 @@
                 if (files.length > 0) {
                     const file = files[0];
 
-                    // Check if file is an image
-                    if (!file.type.match('image.*')) {
+                    if (!['image/jpeg', 'image/png'].includes(file.type)) {
                         alert('Please select an image file (JPG, JPEG, or PNG).');
                         return;
                     }
+
+                    selectedFile = file;
 
                     // Display preview
                     const reader = new FileReader();
@@ -196,12 +196,14 @@
             removeImageBtn.addEventListener('click', function() {
                 previewContainer.classList.add('hidden');
                 submitContainer.classList.add('hidden');
+                resultsContainer.classList.add('hidden');
                 fileInput.value = '';
+                selectedFile = null;
             });
 
             // Classify image
             classifyButton.addEventListener('click', function() {
-                if (fileInput.files.length === 0) {
+                if (!selectedFile) {
                     alert('Please select an image first.');
                     return;
                 }
@@ -213,14 +215,15 @@
 
                 // Prepare form data
                 const formData = new FormData();
-                formData.append('file', fileInput.files[0]);
+                formData.append('file', selectedFile);
 
-                // Send request to our Flask backend
                 fetch('/predict', {
                     method: 'POST',
                     body: formData
                 })
-                .then(response => response.json())
+                .then(response => response.json().catch(() => ({
+                    error: 'Something went wrong on the server. Please try again.'
+                })))
                 .then(data => {
                     // Hide loading state
                     loadingContainer.classList.add('hidden');
@@ -235,9 +238,16 @@
                         // Display top prediction
                         if (data.predictions && data.predictions.length > 0) {
                             const topPrediction = data.predictions[0];
+                            if (topPrediction.confidence < LOW_CONFIDENCE) {
+                                resultsHTML += `
+                                    <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                                        <p class="text-yellow-800">The model isn't confident about this photo. It may not show a dog, or the breed may not be one of the 120 it knows.</p>
+                                    </div>
+                                `;
+                            }
                             resultsHTML += `
                                 <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                                    <p class="text-xl font-bold text-blue-800">Top prediction: ${topPrediction.breed}</p>
+                                    <p class="text-xl font-bold text-blue-800">Top prediction: ${topPrediction.display_name}</p>
                                     <p class="text-lg">Confidence: ${(topPrediction.confidence * 100).toFixed(2)}%</p>
                                 </div>
                             `;
@@ -246,11 +256,11 @@
                             if (data.predictions.length > 1) {
                                 resultsHTML += '<div class="mt-4"><p class="font-bold mb-2">Other possibilities:</p><ul class="space-y-2">';
 
-                                for (let i = 1; i < Math.min(data.predictions.length, 5); i++) {
+                                for (let i = 1; i < data.predictions.length; i++) {
                                     const prediction = data.predictions[i];
                                     resultsHTML += `
                                         <li class="flex justify-between">
-                                            <span>${prediction.breed}</span>
+                                            <span>${prediction.display_name}</span>
                                             <span class="text-gray-600">${(prediction.confidence * 100).toFixed(2)}%</span>
                                         </li>
                                     `;
@@ -279,5 +289,4 @@
             });
         });
     </script>
-</body>
-</html>
+{% endblock %}
