@@ -193,6 +193,12 @@ def load_upload(contents: bytes) -> np.ndarray:
         raise UploadError(400, INVALID_IMAGE_MESSAGE) from e
 
 
+def format_breed_name(label: str) -> str:
+    """Turn 'n02097047-miniature_schnauzer' into 'Miniature Schnauzer'."""
+    words = label.split("-", 1)[-1].split("_")
+    return " ".join(word[0].upper() + word[1:] for word in words)
+
+
 def classify(contents: bytes) -> list[dict[str, str | float]]:
     """Return the top 3 breeds for an uploaded image.
 
@@ -217,7 +223,11 @@ def classify(contents: bytes) -> list[dict[str, str | float]]:
 
     top_3_indices = np.argsort(predictions)[-3:][::-1]
     return [
-        {"breed": label_map[str(idx)], "confidence": float(predictions[idx])}
+        {
+            "breed": label_map[str(idx)],
+            "display_name": format_breed_name(label_map[str(idx)]),
+            "confidence": float(predictions[idx]),
+        }
         for idx in top_3_indices
     ]
 

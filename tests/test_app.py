@@ -1,4 +1,5 @@
 import io
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -63,11 +64,32 @@ def test_predicts_sample_breeds(
     assert expected in predictions[0]["breed"]
 
 
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        ("n02099601-golden_retriever", "Golden Retriever"),
+        ("n02086240-Shih-Tzu", "Shih-Tzu"),
+        ("n02089078-black-and-tan_coonhound", "Black-and-tan Coonhound"),
+        ("n02107908-Appenzeller", "Appenzeller"),
+    ],
+)
+def test_format_breed_name(label: str, expected: str) -> None:
+    assert portfolio.format_breed_name(label) == expected
+
+
+def test_every_label_formats_without_error() -> None:
+    labels = json.loads(portfolio.LABEL_MAP_PATH.read_text(encoding="utf-8"))
+    names = {portfolio.format_breed_name(label) for label in labels.values()}
+
+    assert len(names) == 120
+
+
 def test_response_keeps_fields_the_android_app_reads(client: TestClient) -> None:
     contents = (FIXTURES / "golden.jpeg").read_bytes()
     top = post(client, "/predict", contents).json()["predictions"][0]
 
     assert top["breed"] == "n02099601-golden_retriever"
+    assert top["display_name"] == "Golden Retriever"
     assert isinstance(top["confidence"], float)
 
 
