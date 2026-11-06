@@ -1,5 +1,6 @@
 import io
 import json
+import re
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -35,10 +36,7 @@ def post(client: TestClient, route: str, contents: bytes, name: str = "temp_imag
     return client.post(route, files={"file": (name, contents, "image/jpeg")})
 
 
-@pytest.mark.parametrize(
-    "path",
-    ["/", "/projects", "/dog_classifier", "/about", "/android_app", "/this_website"],
-)
+@pytest.mark.parametrize("path", list(portfolio.PAGES))
 def test_pages_render(client: TestClient, path: str) -> None:
     response = client.get(path)
     html = response.text
@@ -48,6 +46,49 @@ def test_pages_render(client: TestClient, path: str) -> None:
     assert html.count("<div") == html.count("</div>")
     assert f"© {date.today().year} Prashand Ramesar" in html
     assert 'id="mobile-menu"' in html
+
+
+@pytest.mark.parametrize("path", list(portfolio.PAGES))
+def test_pages_have_share_tags(client: TestClient, path: str) -> None:
+    html = client.get(path).text
+
+    assert f'rel="canonical" href="{portfolio.SITE_URL}{path}"' in html
+    assert 'property="og:title" content="' in html
+    assert 'name="description" content="' in html
+    assert "/static/img/og.png" in html
+
+
+def test_kaai_stays_anonymous_and_attributes_the_cost_result(
+    client: TestClient,
+) -> None:
+    html = client.get("/kaai").text
+
+    assert "ANWB" not in html
+    assert "Senior management" in html
+    assert "operational cost" in html
+
+
+def test_missing_page_shows_404_page_to_browsers(client: TestClient) -> None:
+    response = client.get("/nope", headers={"Accept": "text/html"})
+
+    assert response.status_code == 404
+    assert "Page not found" in response.text
+
+
+def test_missing_route_returns_json_to_api_clients(client: TestClient) -> None:
+    response = client.get("/api/nope", headers={"Accept": "application/json"})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Not Found"}
+
+
+def test_sitemap_and_robots(client: TestClient) -> None:
+    sitemap = client.get("/sitemap.xml")
+
+    assert sitemap.headers["content-type"].startswith("application/xml")
+    for path in portfolio.PAGES:
+        assert f"<loc>{portfolio.SITE_URL}{path}</loc>" in sitemap.text
+    assert "/sitemap.xml" in client.get("/robots.txt").text
 
 
 @pytest.mark.parametrize("route", PREDICT_ROUTES)
@@ -222,3 +263,22 @@ def test_cors_only_allows_the_site_origin(client: TestClient) -> None:
 
     assert allowed.headers["access-control-allow-origin"] == "https://prashand.nl"
     assert "access-control-allow-origin" not in other.headers
+
+
+def test_template_classes_are_in_the_compiled_stylesheet() -> None:
+    """Fails if a template gained a class without rerunning build_css.py."""
+    base_dir = Path(portfolio.BASE_DIR)
+    stylesheet = (base_dir / "static" / "css" / "site.css").read_text(encoding="utf-8")
+    compiled = {
+        re.sub(r"\\(.)", r"\1", name)
+        for name in re.findall(r"\.((?:\\.|[\w-])+)", stylesheet)
+    }
+    not_tailwind = {"dropzone", "spinner", "project-card", "prose"}
+
+    used: set[str] = set()
+    for template in (base_dir / "templates").glob("*.html"):
+        html = re.sub(r"{%.*?%}|{{.*?}}", " ", template.read_text("utf-8"))
+        for classes in re.findall(r'class="([^"]*)"', html):
+            used.update(classes.split())
+
+    assert used - not_tailwind - compiled == set()

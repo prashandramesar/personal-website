@@ -16,7 +16,12 @@ import uvicorn
 from ai_edge_litert.interpreter import Interpreter
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from flask import Flask, render_template
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -46,6 +51,17 @@ TOO_LARGE_MESSAGE = "File too large. The maximum size is 16 MB"
 
 # The Android app is not a browser, so CORS does not apply to it.
 ALLOWED_ORIGINS = ["https://prashand.nl", "https://www.prashand.nl"]
+
+SITE_URL = "https://www.prashand.nl"
+PAGES = {
+    "/": "index.html",
+    "/kaai": "kaai.html",
+    "/projects": "projects.html",
+    "/dog_classifier": "dog_classifier.html",
+    "/android_app": "android_app.html",
+    "/this_website": "this_website.html",
+    "/about": "about.html",
+}
 
 # Flask only renders Jinja templates. FastAPI handles every request.
 flask_app = Flask(__name__)
@@ -216,9 +232,15 @@ def classify(contents: bytes) -> list[dict[str, str | float]]:
     ]
 
 
-def render_page(template_name: str) -> HTMLResponse:
+def render_page(
+    template_name: str, path: str | None = None, status_code: int = 200
+) -> HTMLResponse:
+    canonical_url = f"{SITE_URL}{path}" if path else None
     with flask_app.app_context():
-        return HTMLResponse(content=render_template(template_name))
+        html = render_template(
+            template_name, canonical_url=canonical_url, site_url=SITE_URL
+        )
+    return HTMLResponse(content=html, status_code=status_code)
 
 
 @app.get("/api/dog")
@@ -260,34 +282,44 @@ async def predict(request: Request) -> JSONResponse:
         return JSONResponse({"error": e.message}, status_code=e.status_code)
 
 
-@app.get("/", response_class=HTMLResponse)
-async def home() -> HTMLResponse:
-    return render_page("index.html")
+def add_page(path: str, template_name: str) -> None:
+    async def page() -> HTMLResponse:
+        return render_page(template_name, path)
+
+    app.add_api_route(
+        path,
+        page,
+        methods=["GET"],
+        response_class=HTMLResponse,
+        name=template_name.removesuffix(".html"),
+    )
 
 
-@app.get("/projects", response_class=HTMLResponse)
-async def projects() -> HTMLResponse:
-    return render_page("projects.html")
+for page_path, page_template in PAGES.items():
+    add_page(page_path, page_template)
 
 
-@app.get("/dog_classifier", response_class=HTMLResponse)
-async def dog_classifier() -> HTMLResponse:
-    return render_page("dog_classifier.html")
+@app.exception_handler(404)
+async def not_found(request: Request, exc: Exception) -> Response:
+    """Show visitors a page, and keep JSON errors for API clients."""
+    if request.method == "GET" and "text/html" in request.headers.get("accept", ""):
+        return render_page("404.html", status_code=404)
+    return JSONResponse({"detail": "Not Found"}, status_code=404)
 
 
-@app.get("/about", response_class=HTMLResponse)
-async def about() -> HTMLResponse:
-    return render_page("about.html")
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots() -> str:
+    return f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n"
 
 
-@app.get("/android_app", response_class=HTMLResponse)
-async def android_app() -> HTMLResponse:
-    return render_page("android_app.html")
-
-
-@app.get("/this_website", response_class=HTMLResponse)
-async def this_website() -> HTMLResponse:
-    return render_page("this_website.html")
+@app.get("/sitemap.xml")
+async def sitemap() -> Response:
+    urls = "".join(f"<url><loc>{SITE_URL}{path}</loc></url>" for path in PAGES)
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
+    )
+    return Response(content=body, media_type="application/xml")
 
 
 @app.get("/health")

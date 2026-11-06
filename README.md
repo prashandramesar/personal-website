@@ -22,7 +22,8 @@ Predictions call the model directly in the same process. Uploaded images are pro
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | Home page |
-| `/projects` | GET | Projects overview |
+| `/kaai` | GET | KAAI case study |
+| `/projects` | GET | Work overview |
 | `/dog_classifier` | GET | Classifier demo page |
 | `/android_app` | GET | Android app project page |
 | `/this_website` | GET | Website project page |
@@ -31,6 +32,7 @@ Predictions call the model directly in the same process. Uploaded images are pro
 | `/api/dog/predict` | POST | Dog breed prediction |
 | `/predict` | POST | Dog breed prediction for the website and Android app |
 | `/health` | GET | Health check, returns 503 if the model failed to load |
+| `/sitemap.xml`, `/robots.txt` | GET | Search engine files |
 
 ## Dog Breed Classifier
 
@@ -130,7 +132,8 @@ The site is deployed on Render using `render.yaml`:
 ├── render.yaml               # Render service configuration
 ├── requirements.txt          # Runtime dependencies
 ├── requirements-dev.txt      # Runtime dependencies plus dev tools
-├── static/                   # Images and the CV
+├── scripts/build_css.py      # Rebuilds static/css/site.css after template changes
+├── static/                   # CSS, images and the CV
 ├── templates/                # HTML templates, each extending base.html
 ├── tests/                    # Test suite and sample images
 ├── dog_breed_model_quantized.tflite  # TensorFlow Lite model
