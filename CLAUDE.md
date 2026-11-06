@@ -8,10 +8,13 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Model: MobileNetV2 as TensorFlow Lite (`dog_breed_model_quantized.tflite`) with `label_map.json`, run with the `ai-edge-litert` interpreter and loaded in the FastAPI lifespan handler. Training code is in the `dog-breed-model` repo.
 - Model input is 224x224 RGB `float32` scaled to [0, 1], which matches training. Output is 120 classes.
 - Uploads are processed in memory. Never write them to disk or under `static/`.
+- Assistant: `assistant.py` searches `knowledge/*.md` with BM25 and calls no paid API. Add an LLM by implementing `AnswerProvider`. Its evals are in `evaluation/assistant_cases.json` and run in `pytest`.
+- `knowledge/*.md` is public text that Prashand has approved. Only add facts Prashand has supplied, and keep employer names out of `kaai.md`.
 
 ## Endpoints
 - `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/this_website`: HTML pages
 - `/sitemap.xml`, `/robots.txt`: for search engines
+- `/assistant`, `/api/assistant/ask` (POST, JSON `question`): only exist when `ASSISTANT_ENABLED=true`, off by default
 - `/api/dog` (GET): API root
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
 - `/predict` (POST, multipart `file`): same prediction, used by the website form and the Android app. Errors use an `error` field.

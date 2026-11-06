@@ -31,6 +31,7 @@ Predictions call the model directly in the same process. Uploaded images are pro
 | `/api/dog` | GET | API root with welcome message |
 | `/api/dog/predict` | POST | Dog breed prediction |
 | `/predict` | POST | Dog breed prediction for the website and Android app |
+| `/assistant`, `/api/assistant/ask` | GET, POST | Ask about my work. Hidden unless `ASSISTANT_ENABLED=true` |
 | `/health` | GET | Health check, returns 503 if the model failed to load |
 | `/sitemap.xml`, `/robots.txt` | GET | Search engine files |
 
@@ -135,6 +136,9 @@ The site is deployed on Render using `render.yaml`:
 ├── scripts/build_css.py      # Rebuilds static/css/site.css after template changes
 ├── static/                   # CSS, images and the CV
 ├── templates/                # HTML templates, each extending base.html
+├── assistant.py              # Searches the knowledge base
+├── knowledge/                # Approved text the assistant answers from
+├── evaluation/               # Assistant test questions
 ├── tests/                    # Test suite and sample images
 ├── dog_breed_model_quantized.tflite  # TensorFlow Lite model
 └── label_map.json            # Mapping of model outputs to breed names
