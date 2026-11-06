@@ -10,7 +10,8 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Uploads are processed in memory. Never write them to disk or under `static/`.
 
 ## Endpoints
-- `/`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/this_website`: HTML pages
+- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/this_website`: HTML pages
+- `/sitemap.xml`, `/robots.txt`: for search engines
 - `/api/dog` (GET): API root
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
 - `/predict` (POST, multipart `file`): same prediction, used by the website form and the Android app. Errors use an `error` field.
@@ -33,7 +34,13 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 
 ## Frontend
 - Templates in `templates/`, and each page extends `base.html`. Static files in `static/`.
-- Styling uses Tailwind utility classes from the prebuilt 2.2.19 CDN file, so classes outside that build do nothing. Match the existing look (white cards, `rounded-lg shadow-md p-8`, gray text).
+- Styling uses Tailwind 2.2.19 utility classes, served from a trimmed `static/css/site.css`. After adding a new class to a template, run `python scripts/build_css.py` and commit the result, or the class does nothing. A test fails if a class is missing. Match the existing look (white cards, `rounded-lg shadow-md p-8`, gray text).
+- New pages go in the `PAGES` table in `app.py`, which also feeds the sitemap.
+
+## Positioning and content
+- The site presents Prashand as someone who takes AI products from business need to production. Hands-on projects are hobby work that keeps Prashand close to the technology. Keep this framing.
+- KAAI is the only name used for the call center project. Don't name an employer on its case study or link it to one, and credit the cost result to senior management.
+- Only state facts Prashand has supplied or the code proves. Don't invent results, team sizes or decisions.
 
 ## Commands
 - Setup: `python -m venv .venv`, `.venv\Scripts\activate`, `pip install -r requirements-dev.txt`
