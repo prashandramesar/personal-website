@@ -1,14 +1,26 @@
 [project]
 name = "personal-portfolio"
 version = "0.1.0"
-description = "Add your description here"
+description = "Personal portfolio site with a dog breed classifier"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
+# Mirrors requirements.txt, which is what Render installs.
 dependencies = [
-    "flask>=3.1.0",
-    "mypy>=1.15.0",
-    "pre-commit>=4.1.0",
-    "requests>=2.32.3",
-    "ruff>=0.9.10",
-    "werkzeug>=3.1.3",
+    "fastapi==0.162.0",
+    "flask==2.2.3",
+    "numpy==2.0.2",
+    "pillow==13.0.0",
+    "python-multipart==0.0.33",
+    "tensorflow==2.18.0",
+    "uvicorn==0.23.2",
+    "werkzeug==2.2.3",
+]
+
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "mypy==1.15.0",
+    "pre-commit==4.1.0",
+    "pytest==8.3.4",
+    "ruff==0.9.9",
 ]
