@@ -11,7 +11,7 @@ import io
 import json
 from typing import Any
 import numpy as np
-import tensorflow as tf
+from ai_edge_litert.interpreter import Interpreter
 from PIL import Image
 from werkzeug.utils import secure_filename
 from fastapi.staticfiles import StaticFiles
@@ -69,7 +69,7 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Global model variables
-model: tf.lite.Interpreter | None = None
+model: Interpreter | None = None
 label_map: dict[str, str] | None = None
 input_details: list[dict[str, Any]] | None = None
 output_details: list[dict[str, Any]] | None = None
@@ -81,7 +81,7 @@ async def startup_event():
     global model, label_map, input_details, output_details
     try:
         # Load the TF Lite model
-        interpreter = tf.lite.Interpreter(model_path="dog_breed_model_quantized.tflite")
+        interpreter = Interpreter(model_path="dog_breed_model_quantized.tflite")
         interpreter.allocate_tensors()
         model = interpreter
 
