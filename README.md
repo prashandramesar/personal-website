@@ -137,10 +137,6 @@ The site is deployed on Render using `render.yaml`:
 └── label_map.json            # Mapping of model outputs to breed names
 ```
 
-## License
-
-[MIT License](LICENSE)
-
 ## Acknowledgments
 
 - TensorFlow for the model tooling
