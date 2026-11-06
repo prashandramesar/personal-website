@@ -1,5 +1,6 @@
 import io
 import json
+import re
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -262,3 +263,22 @@ def test_cors_only_allows_the_site_origin(client: TestClient) -> None:
 
     assert allowed.headers["access-control-allow-origin"] == "https://prashand.nl"
     assert "access-control-allow-origin" not in other.headers
+
+
+def test_template_classes_are_in_the_compiled_stylesheet() -> None:
+    """Fails if a template gained a class without rerunning build_css.py."""
+    base_dir = Path(portfolio.BASE_DIR)
+    stylesheet = (base_dir / "static" / "css" / "site.css").read_text(encoding="utf-8")
+    compiled = {
+        re.sub(r"\\(.)", r"\1", name)
+        for name in re.findall(r"\.((?:\\.|[\w-])+)", stylesheet)
+    }
+    not_tailwind = {"dropzone", "spinner", "project-card", "prose"}
+
+    used: set[str] = set()
+    for template in (base_dir / "templates").glob("*.html"):
+        html = re.sub(r"{%.*?%}|{{.*?}}", " ", template.read_text("utf-8"))
+        for classes in re.findall(r'class="([^"]*)"', html):
+            used.update(classes.split())
+
+    assert used - not_tailwind - compiled == set()
