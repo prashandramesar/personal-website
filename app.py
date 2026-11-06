@@ -18,7 +18,7 @@ from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from flask import Blueprint, Flask, render_template
+from flask import Flask, render_template
 from PIL import Image, ImageOps, UnidentifiedImageError
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -55,22 +55,6 @@ flask_app = Flask(__name__)
 def inject_current_year() -> dict[str, int]:
     return {"current_year": date.today().year}
 
-
-# Import the dog_classifier_app blueprint
-try:
-    from dog_classifier.app import dog_classifier_app
-
-    flask_app.register_blueprint(dog_classifier_app, url_prefix="/dog_classifier")
-except ImportError as e:
-    logger.error(f"Could not import dog_classifier_app: {e}")
-    # Create a dummy blueprint if import fails
-    dog_classifier_app = Blueprint("dog_classifier", __name__)
-
-    @dog_classifier_app.route("/")
-    def dog_classifier_home() -> str:
-        return "Dog Classifier Blueprint (dummy)"
-
-    flask_app.register_blueprint(dog_classifier_app, url_prefix="/dog_classifier")
 
 model: Interpreter | None = None
 label_map: dict[str, str] | None = None

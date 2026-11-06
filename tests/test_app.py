@@ -1,6 +1,7 @@
 import io
 import json
 from collections.abc import Iterator
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -39,7 +40,14 @@ def post(client: TestClient, route: str, contents: bytes, name: str = "temp_imag
     ["/", "/projects", "/dog_classifier", "/about", "/android_app", "/this_website"],
 )
 def test_pages_render(client: TestClient, path: str) -> None:
-    assert client.get(path).status_code == 200
+    response = client.get(path)
+    html = response.text
+
+    assert response.status_code == 200
+    assert html.startswith("<!DOCTYPE html>")
+    assert html.count("<div") == html.count("</div>")
+    assert f"© {date.today().year} Prashand Ramesar" in html
+    assert 'id="mobile-menu"' in html
 
 
 @pytest.mark.parametrize("route", PREDICT_ROUTES)

@@ -1,15 +1,10 @@
-<!-- templates/index.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Science Portfolio - Home</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
-</head>
-<body class="bg-gray-100 font-sans">
-    {% include 'navbar.html' %}
+{% extends 'base.html' %}
 
+{% block title %}Data Science Portfolio - Home{% endblock %}
+
+{% block footer_margin %}{% endblock %}
+
+{% block content %}
     <!-- Hero Section -->
     <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
         <div class="container mx-auto px-6 py-20">
@@ -130,12 +125,4 @@
             </a>
         </div>
     </div>
-
-    <!-- Footer -->
-    <footer class="bg-gray-800 text-white py-8">
-        <div class="container mx-auto px-6 text-center">
-            <p>© 2025 Prashand Ramesar - All Rights Reserved</p>
-        </div>
-    </footer>
-</body>
-</html>
+{% endblock %}

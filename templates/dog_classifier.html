@@ -1,11 +1,8 @@
-<!-- templates/dog_classifier.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dog Breed Classifier - Data Science Portfolio</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+{% extends 'base.html' %}
+
+{% block title %}Dog Breed Classifier - Data Science Portfolio{% endblock %}
+
+{% block head %}
     <style>
         .dropzone {
             border: 2px dashed #ccc;
@@ -29,10 +26,11 @@
             100% { transform: rotate(360deg); }
         }
     </style>
-</head>
-<body class="bg-gray-100 font-sans">
-    {% include 'navbar.html' %}
+{% endblock %}
 
+{% block footer_margin %}mt-16{% endblock %}
+
+{% block content %}
     <div class="container mx-auto px-6 py-12">
         <h1 class="text-4xl font-bold text-center mb-4">Dog Breed Classifier</h1>
         <p class="text-center text-gray-600 mb-10 max-w-3xl mx-auto">
@@ -104,14 +102,9 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
-    <!-- Footer -->
-    <footer class="bg-gray-800 text-white py-8 mt-16">
-        <div class="container mx-auto px-6 text-center">
-            <p>© 2025 Prashand Ramesar - All Rights Reserved</p>
-        </div>
-    </footer>
-
+{% block scripts %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const dropzone = document.getElementById('dropzone');
@@ -296,5 +289,4 @@
             });
         });
     </script>
-</body>
-</html>
+{% endblock %}
