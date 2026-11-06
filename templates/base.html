@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %}</title>
+    <meta name="description" content="{% block description %}Prashand Ramesar: AI engineering, senior data science and process optimization.{% endblock %}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ self.title() }}">
+    <meta property="og:description" content="{{ self.description() }}">
+    <meta property="og:image" content="{{ site_url }}/static/img/og.png">
+    <meta name="twitter:card" content="summary_large_image">
+    {% if canonical_url %}
+    <link rel="canonical" href="{{ canonical_url }}">
+    <meta property="og:url" content="{{ canonical_url }}">
+    {% endif %}
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
     {% block head %}{% endblock %}
 </head>
