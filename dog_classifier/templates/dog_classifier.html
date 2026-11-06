@@ -36,7 +36,7 @@
     <div class="container mx-auto px-6 py-12">
         <h1 class="text-4xl font-bold text-center mb-4">Dog Breed Classifier</h1>
         <p class="text-center text-gray-600 mb-10 max-w-3xl mx-auto">
-            Upload a photo of a dog, and our machine learning model will identify its breed. This model can recognize over 120 different dog breeds with high accuracy.
+            Upload a photo of a dog, and our machine learning model will identify its breed. This model can recognize 120 different dog breeds.
         </p>
 
         <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
@@ -88,15 +88,15 @@
                     This dog breed classification system uses a deep convolutional neural network (CNN) trained on thousands of dog images. The model has been fine-tuned to recognize subtle differences between various dog breeds.
                 </p>
                 <p class="mb-4">
-                    The model architecture is based on a pre-trained ResNet50 backbone with custom classification layers added on top and fine-tuned specifically for dog breed recognition.
+                    The model architecture is based on a pre-trained MobileNetV2 backbone with custom classification layers added on top, fine-tuned for dog breed recognition and converted to a quantized TensorFlow Lite model.
                 </p>
                 <p class="mb-4">
-                    The API endpoint is hosted on Render, and this web interface communicates with it to get predictions. The model can identify over 120 different dog breeds with an accuracy of approximately 90% on validation data.
+                    The model runs on the same Render service as this website and can identify 120 different dog breeds.
                 </p>
                 <h3 class="text-xl font-bold mt-6 mb-3">Technologies Used:</h3>
                 <ul class="list-disc pl-6 space-y-2">
                     <li>Python</li>
-                    <li>PyTorch / TensorFlow</li>
+                    <li>TensorFlow / TensorFlow Lite</li>
                     <li>FastAPI</li>
                     <li>Flask</li>
                     <li>HTML/CSS/JavaScript</li>
