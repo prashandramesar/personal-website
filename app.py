@@ -59,7 +59,6 @@ SITE_URL = "https://www.prashand.nl"
 PAGES = {
     "/": "index.html",
     "/kaai": "kaai.html",
-    "/simulator": "simulator.html",
     "/projects": "projects.html",
     "/dog_classifier": "dog_classifier.html",
     "/android_app": "android_app.html",
