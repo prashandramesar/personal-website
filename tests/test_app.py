@@ -68,15 +68,6 @@ def test_kaai_stays_anonymous_and_attributes_the_cost_result(
     assert "operational cost" in html
 
 
-def test_simulator_labels_its_data_as_synthetic(client: TestClient) -> None:
-    html = client.get("/simulator").text
-
-    assert "Everything here is made up" in html
-    assert "contains no real data or results" in html
-    assert client.get("/static/js/simulator.js").status_code == 200
-    assert client.get("/static/js/simulator_model.js").status_code == 200
-
-
 def test_missing_page_shows_404_page_to_browsers(client: TestClient) -> None:
     response = client.get("/nope", headers={"Accept": "text/html"})
 

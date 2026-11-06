@@ -10,7 +10,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Uploads are processed in memory. Never write them to disk or under `static/`.
 
 ## Endpoints
-- `/`, `/kaai`, `/simulator`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/this_website`: HTML pages
+- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/this_website`: HTML pages
 - `/sitemap.xml`, `/robots.txt`: for search engines
 - `/api/dog` (GET): API root
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
@@ -41,7 +41,6 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 ## Positioning and content
 - The site presents Prashand as someone who takes AI products from business need to production. Hands-on projects are hobby work that keeps Prashand close to the technology. Keep this framing.
 - KAAI is the only name used for the call center project. Don't name an employer on its case study or link it to one, and credit the cost result to senior management.
-- The simulator runs entirely in the browser with scripted content. Keep every figure labelled as synthetic, and don't use real KAAI data or results.
 - Only state facts Prashand has supplied or the code proves. Don't invent results, team sizes or decisions.
 
 ## Commands
