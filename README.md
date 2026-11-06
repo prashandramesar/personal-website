@@ -23,6 +23,7 @@ Predictions call the model directly in the same process. Uploaded images are pro
 |----------|--------|-------------|
 | `/` | GET | Home page |
 | `/kaai` | GET | KAAI case study |
+| `/simulator` | GET | Call center simulator, running in the browser |
 | `/projects` | GET | Work overview |
 | `/dog_classifier` | GET | Classifier demo page |
 | `/android_app` | GET | Android app project page |

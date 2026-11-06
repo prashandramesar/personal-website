@@ -42,8 +42,11 @@ LABEL_MAP_PATH = BASE_DIR / "label_map.json"
 MAX_UPLOAD_BYTES = 16 * 1024 * 1024
 # Allows for multipart boundaries and headers around a maximum-size file.
 MAX_REQUEST_BYTES = MAX_UPLOAD_BYTES + 64 * 1024
-# Compressed images can be small on disk but huge once decoded.
-MAX_IMAGE_PIXELS = 50_000_000
+# Compressed images can be small on disk but huge once decoded, and the Render
+# instance has 512 MB. JPEGs can be decoded at reduced size, but PNGs can't.
+MAX_JPEG_PIXELS = 50_000_000
+MAX_PNG_PIXELS = 25_000_000
+JPEG_DECODE_SIZE = (448, 448)
 # Checked against the file contents, as filenames can claim anything.
 ALLOWED_IMAGE_FORMATS = ("JPEG", "PNG")
 INVALID_IMAGE_MESSAGE = "Invalid image. Allowed types: png, jpg, jpeg"
@@ -56,6 +59,7 @@ SITE_URL = "https://www.prashand.nl"
 PAGES = {
     "/": "index.html",
     "/kaai": "kaai.html",
+    "/simulator": "simulator.html",
     "/projects": "projects.html",
     "/dog_classifier": "dog_classifier.html",
     "/android_app": "android_app.html",
@@ -170,9 +174,13 @@ def preprocess_image(
     image: Image.Image, target_size: tuple[int, int] = (224, 224)
 ) -> np.ndarray:
     """Convert an image to the model's input: RGB, 224x224, scaled to [0, 1]."""
+    # Each of these steps avoids holding another full-size copy in memory.
+    image.draft("RGB", JPEG_DECODE_SIZE)
+    ImageOps.exif_transpose(image, in_place=True)
     # Convert before resizing, because palette images can't be interpolated.
-    image = ImageOps.exif_transpose(image).convert("RGB").resize(target_size)
-    image_array = np.array(image, dtype=np.float32) / 255.0
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+    image_array = np.array(image.resize(target_size), dtype=np.float32) / 255.0
     return np.expand_dims(image_array, axis=0)
 
 
@@ -184,7 +192,8 @@ def load_upload(contents: bytes) -> np.ndarray:
     try:
         image = Image.open(io.BytesIO(contents), formats=ALLOWED_IMAGE_FORMATS)
         width, height = image.size
-        if width * height > MAX_IMAGE_PIXELS:
+        max_pixels = MAX_JPEG_PIXELS if image.format == "JPEG" else MAX_PNG_PIXELS
+        if width * height > max_pixels:
             raise UploadError(413, "Image dimensions are too large")
         return preprocess_image(image)
     except Image.DecompressionBombError as e:

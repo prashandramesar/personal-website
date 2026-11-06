@@ -68,6 +68,15 @@ def test_kaai_stays_anonymous_and_attributes_the_cost_result(
     assert "operational cost" in html
 
 
+def test_simulator_labels_its_data_as_synthetic(client: TestClient) -> None:
+    html = client.get("/simulator").text
+
+    assert "Everything here is made up" in html
+    assert "contains no real data or results" in html
+    assert client.get("/static/js/simulator.js").status_code == 200
+    assert client.get("/static/js/simulator_model.js").status_code == 200
+
+
 def test_missing_page_shows_404_page_to_browsers(client: TestClient) -> None:
     response = client.get("/nope", headers={"Accept": "text/html"})
 
@@ -282,3 +291,28 @@ def test_template_classes_are_in_the_compiled_stylesheet() -> None:
             used.update(classes.split())
 
     assert used - not_tailwind - compiled == set()
+
+
+def test_large_jpeg_is_decoded_at_reduced_size() -> None:
+    """Protects the 512 MB instance: a full decode here would need about 150 MB."""
+    large = Image.new("RGB", (7000, 7000), "white")
+    image = Image.open(io.BytesIO(encode(large, "JPEG")))
+
+    portfolio.preprocess_image(image)
+
+    assert max(image.size) < 1000
+
+
+def test_large_jpeg_within_limit_is_accepted(client: TestClient) -> None:
+    contents = encode(golden().resize((7000, 7000)), "JPEG")
+    assert len(contents) < portfolio.MAX_UPLOAD_BYTES
+
+    response = post(client, "/predict", contents)
+
+    assert response.status_code == 200
+    assert "golden_retriever" in response.json()["predictions"][0]["breed"]
+
+
+def test_png_over_its_pixel_limit_returns_413(client: TestClient) -> None:
+    contents = encode(Image.new("L", (5100, 5000)))
+    assert post(client, "/predict", contents, "big.png").status_code == 413
