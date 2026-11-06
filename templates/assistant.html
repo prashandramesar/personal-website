@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Ask About My Work | Prashand Ramesar{% endblock %}
+{% block description %}Ask questions about Prashand Ramesar's work, and get answers from the pages of this site with links to their sources.{% endblock %}
+
+{% block content %}
+    <div class="container mx-auto px-6 py-12">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-4xl font-bold text-center mb-4">Ask About My Work</h1>
+            <p class="text-center text-gray-600 mb-8">
+                This version finds existing text from this site and links to where it came from. It doesn't generate answers, and your questions aren't stored.
+            </p>
+
+            <div class="bg-white rounded-lg shadow-md p-8 mb-8">
+                <form id="ask-form" class="flex flex-wrap gap-2 mb-4">
+                    <label for="question" class="sr-only">Your question</label>
+                    <input id="question" type="text" maxlength="{{ max_question_length }}" placeholder="What would you like to know?" class="flex-1 border border-gray-200 rounded-lg py-2 px-4" required>
+                    <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition duration-300">Ask</button>
+                </form>
+
+                <p class="text-gray-600 text-sm mb-2">Try one of these:</p>
+                <div id="suggestions" class="flex flex-wrap gap-2">
+                    {% for question in suggested_questions %}
+                    <button type="button" data-question="{{ question }}" class="border-2 border-blue-600 text-blue-600 text-sm font-medium py-1 px-3 rounded-lg hover:bg-blue-600 hover:text-white transition duration-300">{{ question }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div id="answers" aria-live="polite"></div>
+            <noscript><p class="text-red-800 text-center">This page needs JavaScript.</p></noscript>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="/static/js/assistant.js"></script>
+{% endblock %}

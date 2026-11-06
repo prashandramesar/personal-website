@@ -1,0 +1,34 @@
+{
+  "answerable": [
+    {"question": "What is KAAI?", "title": "What KAAI is"},
+    {"question": "What was your role on KAAI?", "title": "Prashand's role on KAAI"},
+    {"question": "Why was NBA delayed?", "title": "The decision to delay NBA"},
+    {"question": "How was the dog breed model built?", "title": "How the dog breed model was built"},
+    {"question": "What does next best action do?", "title": "Next best action (NBA)"},
+    {"question": "How does KAAI answer questions?", "title": "How KAAI answers questions"},
+    {"question": "What results did KAAI achieve?", "title": "KAAI results and outcome"},
+    {"question": "Did KAAI save money?", "title": "KAAI results and outcome"},
+    {"question": "Tell me about the retrospectives", "title": "Improving ways of working"},
+    {"question": "Where do you work?", "title": "Current job at ANWB"},
+    {"question": "What did you study?", "title": "Education and degrees"},
+    {"question": "Which university did you go to?", "title": "Education and degrees"},
+    {"question": "What was your thesis about?", "title": "Thesis on malicious websites"},
+    {"question": "What are your skills?", "title": "Skills and expertise"},
+    {"question": "How can I contact you?", "title": "How to contact Prashand"},
+    {"question": "Tell me about the Android app", "title": "The Android app project"},
+    {"question": "How is this website built?", "title": "How this website is built"},
+    {"question": "What internships did you do?", "title": "Previous experience and internships"}
+  ],
+  "unanswerable": [
+    "What is the capital of France?",
+    "What is your salary?",
+    "Did you work at Google?",
+    "What is your favorite color?",
+    "How old are you?",
+    "Are you married?",
+    "Write me a poem about pirates",
+    "Hello",
+    "???",
+    "Do you know Kubernetes?"
+  ]
+}

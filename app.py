@@ -25,8 +25,11 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from flask import Flask, render_template
 from PIL import Image, ImageOps, UnidentifiedImageError
+from pydantic import BaseModel, Field
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+import assistant
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,9 +73,17 @@ PAGES = {
 flask_app = Flask(__name__)
 
 
+def assistant_enabled() -> bool:
+    """Keeps the assistant off the live site until it's switched on in Render."""
+    return os.environ.get("ASSISTANT_ENABLED", "").lower() == "true"
+
+
 @flask_app.context_processor
-def inject_current_year() -> dict[str, int]:
-    return {"current_year": date.today().year}
+def inject_template_values() -> dict[str, int | bool]:
+    return {
+        "current_year": date.today().year,
+        "assistant_enabled": assistant_enabled(),
+    }
 
 
 model: Interpreter | None = None
@@ -241,12 +252,15 @@ def classify(contents: bytes) -> list[dict[str, str | float]]:
 
 
 def render_page(
-    template_name: str, path: str | None = None, status_code: int = 200
+    template_name: str,
+    path: str | None = None,
+    status_code: int = 200,
+    **context: Any,
 ) -> HTMLResponse:
     canonical_url = f"{SITE_URL}{path}" if path else None
     with flask_app.app_context():
         html = render_template(
-            template_name, canonical_url=canonical_url, site_url=SITE_URL
+            template_name, canonical_url=canonical_url, site_url=SITE_URL, **context
         )
     return HTMLResponse(content=html, status_code=status_code)
 
@@ -305,6 +319,29 @@ def add_page(path: str, template_name: str) -> None:
 
 for page_path, page_template in PAGES.items():
     add_page(page_path, page_template)
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=assistant.MAX_QUESTION_LENGTH)
+
+
+@app.get("/assistant", response_class=HTMLResponse)
+async def assistant_page() -> HTMLResponse:
+    if not assistant_enabled():
+        raise HTTPException(status_code=404)
+    return render_page(
+        "assistant.html",
+        "/assistant",
+        suggested_questions=assistant.SUGGESTED_QUESTIONS,
+        max_question_length=assistant.MAX_QUESTION_LENGTH,
+    )
+
+
+@app.post("/api/assistant/ask")
+async def ask_assistant(request: AskRequest) -> dict[str, Any]:
+    if not assistant_enabled():
+        raise HTTPException(status_code=404)
+    return assistant.get_provider().answer(request.question).to_dict()
 
 
 @app.exception_handler(404)
