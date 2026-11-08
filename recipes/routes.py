@@ -19,7 +19,7 @@ from starlette.datastructures import FormData
 
 from recipes import auth, backup, convert, extract
 from recipes.fetch import BlockedBySite, FetchError, canonicalize_url, fetch_page
-from recipes.store import SORT_NAME, SORT_NEWEST, SORT_ORDERS, RecipeStore
+from recipes.store import SORT_NAME, SORT_NEWEST, SORT_ORDERS, Recipe, RecipeStore
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +108,14 @@ def _list_field(form: FormData, name: str) -> list[str]:
 
 def _flags(value: str) -> list[str]:
     return [flag for flag in value.split(",") if flag in FLAG_LABELS]
+
+
+def _uses_assumed_us(recipe: Recipe) -> bool:
+    """Whether any line assumed US measures, which gets one note for the recipe."""
+    return any(
+        convert.FLAG_ASSUMED_US in item.get("flags", [])
+        for item in [*recipe.ingredients, *recipe.steps]
+    )
 
 
 def _safe_return_path(value: str, fallback: str) -> str:
@@ -200,6 +208,16 @@ def create_router(render_page: RenderPage) -> APIRouter:
             render_page(
                 template, status_code=status_code, flag_labels=FLAG_LABELS, **context
             )
+        )
+
+    def recipe_page(recipe: Recipe, status_code: int = 200, **context: Any) -> Response:
+        return page(
+            "recipes_detail.html",
+            status_code=status_code,
+            recipe=recipe,
+            assumed_us=_uses_assumed_us(recipe),
+            assumed_us_flag=convert.FLAG_ASSUMED_US,
+            **context,
         )
 
     def import_page(
@@ -467,7 +485,7 @@ def create_router(render_page: RenderPage) -> APIRouter:
         recipe = RecipeStore(settings.db_path).get(recipe_id)
         if recipe is None:
             raise HTTPException(status_code=404)
-        return page("recipes_detail.html", recipe=recipe, already=bool(already))
+        return recipe_page(recipe, already=bool(already))
 
     @router.post("/{recipe_id:int}/rename")
     async def rename(request: Request, recipe_id: int) -> Response:
@@ -484,11 +502,9 @@ def create_router(render_page: RenderPage) -> APIRouter:
         form = await request.form()
         title = _field(form, "title")
         if not title or len(title) > MAX_TITLE_CHARS:
-            return page(
-                "recipes_detail.html",
+            return recipe_page(
+                recipe,
                 status_code=400,
-                recipe=recipe,
-                already=False,
                 rename_error=f"A name needs 1 to {MAX_TITLE_CHARS} characters.",
                 rename_value=title[:MAX_TITLE_CHARS],
             )

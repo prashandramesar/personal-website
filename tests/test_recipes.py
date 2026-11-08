@@ -1090,7 +1090,7 @@ def test_import_then_save_then_view_and_search(
     assert "≈ 125 g" in detail.text
     assert "Bake at 175°C." in detail.text
     assert "https://example.com/cake" in detail.text
-    assert "Assumed US measures" in detail.text
+    assert 'id="assumed-us-note"' in detail.text
 
     found = client.get("/recipes", params={"q": "flour"})
     assert "Test Cake" in found.text
@@ -1779,12 +1779,27 @@ def test_committed_screenshots_are_small_enough() -> None:
             assert path.stat().st_size <= 500 * 1024, f"{path.name} is over 500 KB"
 
 
-def test_homepage_links_to_the_demo_and_the_login_only() -> None:
+def test_homepage_links_to_the_recipes_demo_and_login() -> None:
     with TestClient(portfolio.app) as client:
         page = client.get("/").text
-    assert re.findall(r'href="(/recipes[^"]*)"', page) == ["/recipes/login"]
+    assert re.findall(r'href="(/recipes[^"]*)"', page) == ["/recipes", "/recipes/login"]
+    assert 'href="/recipes" rel="nofollow"' in page
     assert 'href="/recipes/login" rel="nofollow"' in page
     assert 'href="/recipe_tool"' in page
+
+
+def test_homepage_recipes_link_sits_in_the_hero() -> None:
+    with TestClient(portfolio.app) as client:
+        page = client.get("/").text
+    assert page.index('href="/recipes"') < page.index("Featured Work")
+
+
+def test_homepage_recipes_link_needs_a_login(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    response = tool[0].get("/recipes")
+    assert response.status_code == 303
+    assert response.headers["location"] == "/recipes/login"
 
 
 # The schema as it was before favorites, as on the live disk.
@@ -2348,3 +2363,104 @@ def test_tool_pages_use_more_width_on_phones(
         page = client.get(path).text
         assert "px-2 md:px-6" in page
         assert "p-4 md:p-8" in page
+
+
+def save_flagged(store: RecipeStore, flags: list[str], step_flags: list[str]) -> int:
+    return store.save(
+        "Flagged",
+        "",
+        None,
+        [
+            {
+                "amount": "≈ 125 g",
+                "name": "flour",
+                "original": "1 cup flour",
+                "flags": flags,
+            },
+            {"amount": "2", "name": "eggs", "original": "2 eggs", "flags": []},
+        ],
+        [{"text": "Mix.", "original": "Mix.", "flags": step_flags}],
+    )
+
+
+def test_assumed_us_note_appears_once_at_the_top(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client, store = tool
+    log_in(client)
+    page = client.get(
+        f"/recipes/{save_flagged(store, ['assumed_us_measures'], ['assumed_us_measures'])}"
+    ).text
+
+    assert page.count('id="assumed-us-note"') == 1
+    assert "Assumed US measures" not in page
+    assert page.index('id="assumed-us-note"') < page.index("Ingredients</h2>")
+
+
+def test_assumed_us_note_also_comes_from_steps(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client, store = tool
+    log_in(client)
+    page = client.get(
+        f"/recipes/{save_flagged(store, [], ['assumed_us_measures'])}"
+    ).text
+    assert 'id="assumed-us-note"' in page
+
+
+def test_no_assumed_us_note_when_nothing_assumed_it(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client, store = tool
+    log_in(client)
+    page = client.get(f"/recipes/{save_flagged(store, [], [])}").text
+    assert 'id="assumed-us-note"' not in page
+
+
+def test_other_notes_stay_on_their_own_line(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client, store = tool
+    log_in(client)
+    page = client.get(
+        f"/recipes/{save_flagged(store, ['assumed_us_measures', 'volume_only'], [])}"
+    ).text
+    assert "Density unknown, so this stays a volume" in page
+    assert "Assumed US measures" not in page
+
+
+def test_originals_are_hidden_until_tapped(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client, store = tool
+    log_in(client)
+    page = client.get(f"/recipes/{save_flagged(store, [], [])}").text
+    assert page.count('<span data-original class="hidden text-gray-600">') == 2
+    assert "Original: 1 cup flour" in page
+    assert 'id="originals-button"' in page
+
+
+def test_review_page_keeps_originals_and_line_notes_visible(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = tool[0]
+    log_in(client)
+    stub_pipeline(monkeypatch)
+    page = client.post(
+        "/recipes/import", data={"url": "https://example.com/cake"}, headers=ORIGIN
+    ).text
+    assert '<p class="text-gray-600 mt-1">Original: 1 cup flour</p>' in page
+    assert "Assumed US measures" in page
+
+
+def test_rename_error_page_keeps_the_note(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client, store = tool
+    log_in(client)
+    recipe_id = save_flagged(store, ["assumed_us_measures"], [])
+    page = client.post(
+        f"/recipes/{recipe_id}/rename", data={"title": ""}, headers=ORIGIN
+    ).text
+    assert 'id="assumed-us-note"' in page
+    assert "Assumed US measures" not in page

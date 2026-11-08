@@ -33,14 +33,18 @@
         {% if recipe.servings %}<p class="text-gray-600">Servings: {{ recipe.servings }}</p>{% endif %}
         {% if recipe.source_url %}<p class="text-gray-600 mb-4"><a href="{{ recipe.source_url }}" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-700">Original recipe</a></p>{% endif %}
         {% for flag in recipe.flags %}<p class="text-red-600 mb-4">{{ flag_labels[flag] }}</p>{% endfor %}
+        {% if assumed_us %}<p id="assumed-us-note" class="text-gray-600 mt-2">Cups, pints and fluid ounces were read as US measures.</p>{% endif %}
 
-        <h2 class="text-xl font-bold text-gray-800 mt-6 mb-4">Ingredients</h2>
+        <div class="flex flex-wrap justify-between items-center mt-6 mb-4">
+            <h2 class="text-xl font-bold text-gray-800">Ingredients</h2>
+            <button id="originals-button" type="button" aria-expanded="false" class="hidden text-blue-600 hover:text-blue-700">Show original amounts</button>
+        </div>
         <ul>
             {% for item in recipe.ingredients %}
             <li class="py-1 text-gray-800">
                 {% if item.amount %}<strong>{{ item.amount }}</strong> {% endif %}{{ item.name }}
-                {% for flag in item.flags %}<span class="block text-red-600">{{ flag_labels[flag] }}</span>{% endfor %}
-                <span class="block text-gray-600">Original: {{ item.original }}</span>
+                {% for flag in item.flags if flag != assumed_us_flag %}<span class="block text-red-600">{{ flag_labels[flag] }}</span>{% endfor %}
+                <span data-original class="hidden text-gray-600">Original: {{ item.original }}</span>
             </li>
             {% endfor %}
         </ul>
@@ -50,7 +54,7 @@
             {% for step in recipe.steps %}
             <li class="py-2 text-gray-800">
                 {{ loop.index }}. {{ step.text }}
-                {% for flag in step.flags %}<span class="block text-red-600">{{ flag_labels[flag] }}</span>{% endfor %}
+                {% for flag in step.flags if flag != assumed_us_flag %}<span class="block text-red-600">{{ flag_labels[flag] }}</span>{% endfor %}
             </li>
             {% endfor %}
         </ol>
@@ -62,6 +66,22 @@
 {% endblock %}
 {% block scripts %}
 <script>
+    (function() {
+        var button = document.getElementById('originals-button');
+        var originals = document.querySelectorAll('[data-original]');
+        var showing = false;
+        button.addEventListener('click', function() {
+            showing = !showing;
+            originals.forEach(function(original) {
+                original.classList.toggle('hidden', !showing);
+                original.classList.toggle('block', showing);
+            });
+            button.setAttribute('aria-expanded', showing ? 'true' : 'false');
+            button.textContent = showing ? 'Hide original amounts' : 'Show original amounts';
+        });
+        button.classList.remove('hidden');
+    })();
+
     (function() {
         if (!('wakeLock' in navigator)) {
             return;
