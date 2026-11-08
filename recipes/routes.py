@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -19,13 +19,16 @@ from starlette.datastructures import FormData
 
 from recipes import auth, backup, convert, extract
 from recipes.fetch import BlockedBySite, FetchError, canonicalize_url, fetch_page
-from recipes.store import RecipeStore
+from recipes.store import SORT_NAME, SORT_NEWEST, SORT_ORDERS, RecipeStore
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_DAILY_IMPORT_LIMIT = 20
 MAX_LIST_ITEMS = 200
 MAX_FIELD_CHARS = 5_000
+MAX_TITLE_CHARS = 200
+SORT_COOKIE = "recipes_sort"
+SORT_COOKIE_SECONDS = 365 * 24 * 60 * 60
 FLAG_LABELS = {
     convert.FLAG_VOLUME_ONLY: "Density unknown, so this stays a volume",
     convert.FLAG_ASSUMED_US: "Assumed US measures",
@@ -105,6 +108,27 @@ def _list_field(form: FormData, name: str) -> list[str]:
 
 def _flags(value: str) -> list[str]:
     return [flag for flag in value.split(",") if flag in FLAG_LABELS]
+
+
+def _safe_return_path(value: str, fallback: str) -> str:
+    """Only return to the tool's own pages, so a form can't redirect elsewhere."""
+    parts = urlsplit(value)
+    is_tool_page = parts.path == "/recipes" or parts.path.startswith("/recipes/")
+    if parts.scheme or parts.netloc or not is_tool_page or "\\" in value:
+        return fallback
+    return value
+
+
+def _list_url(query: str, favorites_only: bool, sort: str | None = None) -> str:
+    """Build a link to the list, keeping whichever settings apply."""
+    params: dict[str, str] = {}
+    if query:
+        params["q"] = query
+    if favorites_only:
+        params["favorites"] = "1"
+    if sort:
+        params["sort"] = sort
+    return f"/recipes?{urlencode(params)}" if params else "/recipes"
 
 
 def _safe_source_url(value: str) -> str | None:
@@ -251,21 +275,54 @@ def create_router(render_page: RenderPage) -> APIRouter:
         return response
 
     @router.get("")
-    async def recipe_list(request: Request, q: str = "") -> Response:
+    async def recipe_list(
+        request: Request, q: str = "", favorites: str = "", sort: str = ""
+    ) -> Response:
         settings = settings_or_404()
         if not _is_logged_in(request, settings):
             return _redirect("/recipes/login")
         store = RecipeStore(settings.db_path)
         query = q.strip()[:200]
-        recipes = store.search(query) if query else store.recent()
-        return page(
+        favorites_only = favorites == "1"
+        chosen_sort = sort if sort in SORT_ORDERS else None
+        remembered = request.cookies.get(SORT_COOKIE)
+        current_sort = chosen_sort or (
+            remembered if remembered in SORT_ORDERS else SORT_NEWEST
+        )
+        if query:
+            recipes = store.search(
+                query, sort=current_sort, favorites_only=favorites_only
+            )
+        else:
+            recipes = store.recent(sort=current_sort, favorites_only=favorites_only)
+        response = page(
             "recipes_list.html",
             recipes=recipes,
             query=query,
+            favorites_only=favorites_only,
+            current_sort=current_sort,
+            sort_newest=SORT_NEWEST,
+            sort_name=SORT_NAME,
+            all_url=_list_url(query, False),
+            favorites_url=_list_url(query, True),
+            newest_url=_list_url(query, favorites_only, SORT_NEWEST),
+            name_url=_list_url(query, favorites_only, SORT_NAME),
+            return_to=_list_url(query, favorites_only),
             backup_warning=backup.backup_warning(store),
             storage_warning=storage_warning(settings.db_path),
             backup_status=backup.backup_status(store),
         )
+        if chosen_sort:
+            response.set_cookie(
+                SORT_COOKIE,
+                chosen_sort,
+                max_age=SORT_COOKIE_SECONDS,
+                path="/recipes",
+                httponly=True,
+                samesite="lax",
+                secure=auth.secure_cookies(),
+            )
+        return response
 
     @router.get("/export")
     async def export(request: Request) -> Response:
@@ -411,6 +468,50 @@ def create_router(render_page: RenderPage) -> APIRouter:
         if recipe is None:
             raise HTTPException(status_code=404)
         return page("recipes_detail.html", recipe=recipe, already=bool(already))
+
+    @router.post("/{recipe_id:int}/rename")
+    async def rename(request: Request, recipe_id: int) -> Response:
+        settings = settings_or_404()
+        if not auth.is_same_origin(request):
+            raise HTTPException(status_code=403)
+        if not _is_logged_in(request, settings):
+            return _redirect("/recipes/login")
+        store = RecipeStore(settings.db_path)
+        recipe = store.get(recipe_id)
+        if recipe is None:
+            raise HTTPException(status_code=404)
+
+        form = await request.form()
+        title = _field(form, "title")
+        if not title or len(title) > MAX_TITLE_CHARS:
+            return page(
+                "recipes_detail.html",
+                status_code=400,
+                recipe=recipe,
+                already=False,
+                rename_error=f"A name needs 1 to {MAX_TITLE_CHARS} characters.",
+                rename_value=title[:MAX_TITLE_CHARS],
+            )
+        store.rename(recipe_id, title)
+        return _redirect(f"/recipes/{recipe_id}")
+
+    @router.post("/{recipe_id:int}/favorite")
+    async def favorite(request: Request, recipe_id: int) -> Response:
+        settings = settings_or_404()
+        if not auth.is_same_origin(request):
+            raise HTTPException(status_code=403)
+        if not _is_logged_in(request, settings):
+            return _redirect("/recipes/login")
+        form = await request.form()
+        # Each tap sets a state, so a double tap can't undo itself.
+        wanted = _field(form, "favorite")
+        if wanted not in ("0", "1"):
+            raise HTTPException(status_code=400)
+        if not RecipeStore(settings.db_path).set_favorite(recipe_id, wanted == "1"):
+            raise HTTPException(status_code=404)
+        return _redirect(
+            _safe_return_path(_field(form, "next"), f"/recipes/{recipe_id}")
+        )
 
     @router.post("/{recipe_id:int}/delete")
     async def delete(request: Request, recipe_id: int) -> Response:

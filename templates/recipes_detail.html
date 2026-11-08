@@ -3,11 +3,33 @@
 {% block description %}A private recipe tool.{% endblock %}
 {% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 {% block content %}
-<main class="container mx-auto px-6 py-12 max-w-3xl">
+<main class="container mx-auto px-2 md:px-6 py-4 md:py-12 max-w-3xl">
     <p class="mb-4"><a href="/recipes" class="text-blue-600 hover:text-blue-700">Back to recipes</a></p>
     {% if already %}<p class="text-gray-600 mb-4">You've already saved this recipe, so it wasn't imported again.</p>{% endif %}
-    <div class="bg-white rounded-lg shadow-md p-8">
-        <h1 class="text-2xl font-bold text-gray-800 mb-2">{{ recipe.title }}</h1>
+
+    <div id="screen-control" class="hidden sticky top-0 z-10 mb-4">
+        <button id="screen-button" type="button" aria-pressed="false" class="w-full bg-white border border-gray-300 text-gray-800 font-medium px-4 py-3 rounded-lg shadow-md">Keep screen on</button>
+        <p id="screen-message" class="hidden text-red-600 bg-white rounded-lg p-2 mt-2" role="alert"></p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-4 md:p-8">
+        <div class="flex justify-between items-start mb-2">
+            <h1 class="text-2xl font-bold text-gray-800">{{ recipe.title }}</h1>
+            <form method="post" action="/recipes/{{ recipe.id }}/favorite" class="ml-2">
+                <input type="hidden" name="favorite" value="{{ '0' if recipe.favorite else '1' }}">
+                <input type="hidden" name="next" value="/recipes/{{ recipe.id }}">
+                <button type="submit" aria-label="{{ 'Remove from favorites' if recipe.favorite else 'Add to favorites' }}" class="text-3xl leading-none text-yellow-500 px-2">{{ '★' if recipe.favorite else '☆' }}</button>
+            </form>
+        </div>
+        <details class="mb-4"{% if rename_error %} open{% endif %}>
+            <summary class="text-blue-600 hover:text-blue-700 cursor-pointer">Rename</summary>
+            {% if rename_error %}<p class="text-red-600 mt-2" role="alert">{{ rename_error }}</p>{% endif %}
+            <form method="post" action="/recipes/{{ recipe.id }}/rename" class="flex mt-2">
+                <label for="new-title" class="hidden">New name</label>
+                <input id="new-title" name="title" value="{{ rename_value or recipe.title }}" required maxlength="200" class="w-full border border-gray-300 rounded-lg p-2 mr-2">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Save</button>
+            </form>
+        </details>
         {% if recipe.servings %}<p class="text-gray-600">Servings: {{ recipe.servings }}</p>{% endif %}
         {% if recipe.source_url %}<p class="text-gray-600 mb-4"><a href="{{ recipe.source_url }}" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-700">Original recipe</a></p>{% endif %}
         {% for flag in recipe.flags %}<p class="text-red-600 mb-4">{{ flag_labels[flag] }}</p>{% endfor %}
@@ -37,4 +59,92 @@
         <button type="submit" class="text-red-600 hover:text-red-700">Delete recipe</button>
     </form>
 </main>
+{% endblock %}
+{% block scripts %}
+<script>
+    (function() {
+        if (!('wakeLock' in navigator)) {
+            return;
+        }
+        var control = document.getElementById('screen-control');
+        var button = document.getElementById('screen-button');
+        var message = document.getElementById('screen-message');
+        var ON_CLASSES = ['bg-green-600', 'text-white', 'border-green-600'];
+        var OFF_CLASSES = ['bg-white', 'text-gray-800', 'border-gray-300'];
+        var lock = null;
+        var wanted = false;
+        var requesting = false;
+
+        function show(isOn) {
+            button.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+            button.textContent = isOn ? 'Screen stays on: tap to turn off' : 'Keep screen on';
+            ON_CLASSES.forEach(function(name) { button.classList.toggle(name, isOn); });
+            OFF_CLASSES.forEach(function(name) { button.classList.toggle(name, !isOn); });
+        }
+
+        function showMessage(text) {
+            message.textContent = text;
+            message.classList.toggle('hidden', !text);
+        }
+
+        function stopTrying(text) {
+            wanted = false;
+            show(false);
+            showMessage(text);
+        }
+
+        function onRelease() {
+            lock = null;
+            // Leaving the page releases the lock, and coming back asks again.
+            // If it's released while visible, the phone decided to turn it off.
+            if (wanted && document.visibilityState === 'visible') {
+                stopTrying('Your phone turned this off. Tap to try again.');
+            }
+        }
+
+        function requestLock() {
+            if (requesting || lock) {
+                return;
+            }
+            requesting = true;
+            navigator.wakeLock.request('screen').then(function(newLock) {
+                requesting = false;
+                // It may have been turned off while the request was in progress.
+                if (!wanted) {
+                    newLock.release();
+                    return;
+                }
+                lock = newLock;
+                lock.addEventListener('release', onRelease);
+                show(true);
+                showMessage('');
+            }).catch(function() {
+                requesting = false;
+                stopTrying("Your phone wouldn't keep the screen on. Battery saver can block this.");
+            });
+        }
+
+        button.addEventListener('click', function() {
+            if (wanted) {
+                wanted = false;
+                show(false);
+                showMessage('');
+                if (lock) {
+                    lock.release();
+                }
+                return;
+            }
+            wanted = true;
+            requestLock();
+        });
+
+        document.addEventListener('visibilitychange', function() {
+            if (wanted && document.visibilityState === 'visible') {
+                requestLock();
+            }
+        });
+
+        control.classList.remove('hidden');
+    })();
+</script>
 {% endblock %}

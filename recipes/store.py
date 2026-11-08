@@ -3,6 +3,7 @@
 import json
 import re
 import sqlite3
+import unicodedata
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -19,7 +20,8 @@ CREATE TABLE IF NOT EXISTS recipes (
     ingredients TEXT NOT NULL,
     steps TEXT NOT NULL,
     flags TEXT NOT NULL DEFAULT '[]',
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    favorite INTEGER NOT NULL DEFAULT 0
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS recipe_search USING fts5(
     title, ingredients, steps, tokenize = 'unicode61 remove_diacritics 2'
@@ -36,7 +38,17 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 """
-EXPORT_VERSION = 1
+EXPORT_VERSION = 2
+# Version 1 exports have no favorites. Their recipes restore as not starred.
+RESTORABLE_VERSIONS = {1, 2}
+
+SORT_NEWEST = "newest"
+SORT_NAME = "name"
+# Only these fixed strings ever reach the ORDER BY clause.
+SORT_ORDERS = {
+    SORT_NEWEST: "recipes.id DESC",
+    SORT_NAME: "recipes.title COLLATE recipe_title, recipes.id DESC",
+}
 
 
 class RestoreError(Exception):
@@ -53,10 +65,27 @@ class Recipe:
     steps: list[dict[str, Any]]
     flags: list[str]
     created_at: str
+    favorite: bool = False
 
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _title_sort_key(title: str) -> str:
+    """Sort regardless of capitals and accents, so "Crème" sorts with "Creme"."""
+    decomposed = unicodedata.normalize("NFKD", title)
+    without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return without_accents.casefold().strip()
+
+
+def _compare_titles(first: str, second: str) -> int:
+    first_key, second_key = _title_sort_key(first), _title_sort_key(second)
+    return (first_key > second_key) - (first_key < second_key)
+
+
+def _order_by(sort: str) -> str:
+    return SORT_ORDERS.get(sort, SORT_ORDERS[SORT_NEWEST])
 
 
 def _search_query(text: str) -> str:
@@ -71,12 +100,34 @@ class RecipeStore:
         path.parent.mkdir(parents=True, exist_ok=True)
         with self._connection() as connection:
             connection.executescript(SCHEMA)
+            self._add_missing_columns(connection)
+
+    @staticmethod
+    def _add_missing_columns(connection: sqlite3.Connection) -> None:
+        """Upgrade a database made by an older version, keeping its recipes.
+
+        CREATE TABLE IF NOT EXISTS leaves an existing table as it is.
+        """
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(recipes)")
+        }
+        if "favorite" in columns:
+            return
+        try:
+            connection.execute(
+                "ALTER TABLE recipes ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0"
+            )
+        except sqlite3.OperationalError as e:
+            # Another request can get there first while the app is starting up.
+            if "duplicate column" not in str(e).lower():
+                raise
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
         """Open a connection for one transaction, committed if nothing raises."""
         connection = sqlite3.connect(self.path, timeout=10)
         connection.row_factory = sqlite3.Row
+        connection.create_collation("recipe_title", _compare_titles)
         try:
             with connection:
                 yield connection
@@ -94,6 +145,7 @@ class RecipeStore:
             steps=json.loads(row["steps"]),
             flags=json.loads(row["flags"]),
             created_at=row["created_at"],
+            favorite=bool(row["favorite"]),
         )
 
     @staticmethod
@@ -171,22 +223,59 @@ class RecipeStore:
                 "DELETE FROM recipe_search WHERE rowid = ?", (recipe_id,)
             )
 
-    def recent(self, limit: int = 100) -> list[Recipe]:
+    def rename(self, recipe_id: int, title: str) -> bool:
+        """Change a recipe's title and its search entry together."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "UPDATE recipes SET title = ? WHERE id = ?", (title, recipe_id)
+            )
+            if not cursor.rowcount:
+                return False
+            connection.execute(
+                "UPDATE recipe_search SET title = ? WHERE rowid = ?",
+                (title, recipe_id),
+            )
+        return True
+
+    def set_favorite(self, recipe_id: int, favorite: bool) -> bool:
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "UPDATE recipes SET favorite = ? WHERE id = ?",
+                (int(favorite), recipe_id),
+            )
+        return bool(cursor.rowcount)
+
+    def recent(
+        self,
+        limit: int = 100,
+        sort: str = SORT_NEWEST,
+        favorites_only: bool = False,
+    ) -> list[Recipe]:
+        where = "WHERE recipes.favorite = 1 " if favorites_only else ""
         with self._connection() as connection:
             rows = connection.execute(
-                "SELECT * FROM recipes ORDER BY id DESC LIMIT ?", (limit,)
+                f"SELECT * FROM recipes {where}ORDER BY {_order_by(sort)} LIMIT ?",
+                (limit,),
             ).fetchall()
         return [self._recipe(row) for row in rows]
 
-    def search(self, text: str, limit: int = 100) -> list[Recipe]:
+    def search(
+        self,
+        text: str,
+        limit: int = 100,
+        sort: str = SORT_NEWEST,
+        favorites_only: bool = False,
+    ) -> list[Recipe]:
         query = _search_query(text)
         if not query:
             return []
+        favorites = "AND recipes.favorite = 1 " if favorites_only else ""
         with self._connection() as connection:
             rows = connection.execute(
                 "SELECT recipes.* FROM recipe_search "
                 "JOIN recipes ON recipes.id = recipe_search.rowid "
-                "WHERE recipe_search MATCH ? ORDER BY rank LIMIT ?",
+                f"WHERE recipe_search MATCH ? {favorites}"
+                f"ORDER BY {_order_by(sort)} LIMIT ?",
                 (query, limit),
             ).fetchall()
         return [self._recipe(row) for row in rows]
@@ -250,7 +339,7 @@ class RecipeStore:
         try:
             data = json.loads(text)
             recipes = data["recipes"]
-            if data["version"] != EXPORT_VERSION:
+            if data["version"] not in RESTORABLE_VERSIONS:
                 raise RestoreError(f"Unsupported export version: {data['version']}")
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             raise RestoreError("That isn't a recipe export.") from e
@@ -263,8 +352,8 @@ class RecipeStore:
                 for item in recipes:
                     connection.execute(
                         "INSERT INTO recipes (id, title, servings, source_url, "
-                        "ingredients, steps, flags, created_at) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        "ingredients, steps, flags, created_at, favorite) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (
                             item["id"],
                             item["title"],
@@ -274,6 +363,7 @@ class RecipeStore:
                             json.dumps(item["steps"], ensure_ascii=False),
                             json.dumps(item["flags"]),
                             item["created_at"],
+                            int(bool(item.get("favorite", False))),
                         ),
                     )
                     self._write_search(

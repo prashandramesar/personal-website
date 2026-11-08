@@ -12,6 +12,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Recipe conversion: `recipes/convert.py` does all metric and Celsius arithmetic, and a language model must never calculate a quantity.
 - `recipes/densities.json` holds cup weights from USDA FoodData Central, with the `fdc_id` and portion for each. Only add values with a source. If an ingredient isn't listed, show ml and flag it, and never guess grams.
 - Saved recipes live in SQLite at `RECIPES_DB_PATH`, on the Render disk at `/var/data`. Anything else on the filesystem is lost on deploy. `recipes/backup.py` commits a daily JSON export to a private GitHub repo, and `scripts/restore_recipes.py` rebuilds the database from one.
+- The live `recipes` table already exists, so `CREATE TABLE IF NOT EXISTS` won't change it. Add new columns in `RecipeStore._add_missing_columns` as well as `SCHEMA`, and keep `restore_json` able to read older export versions, because old backups stay in the backup repo.
 
 ## Endpoints
 - `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or reads saved recipes, and its worked example is Prashand's own recipe. The login page is the only link into the tool, from this page and the homepage.
@@ -20,7 +21,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
 - `/predict` (POST, multipart `file`): same prediction, used by the website form and the Android app. Errors use an `error` field.
 - `/health` (GET): returns 503 if the model failed to load
-- `/recipes`, `/recipes/login`, `/recipes/logout`, `/recipes/import`, `/recipes/paste`, `/recipes/save`, `/recipes/export`, `/recipes/{id}`, `/recipes/{id}/delete`: the private recipe tool. All return 404 until `RECIPES_PASSWORD`, `RECIPES_SECRET` and `RECIPES_DB_PATH` are set.
+- `/recipes`, `/recipes/login`, `/recipes/logout`, `/recipes/import`, `/recipes/paste`, `/recipes/save`, `/recipes/export`, `/recipes/{id}`, `/recipes/{id}/rename`, `/recipes/{id}/favorite`, `/recipes/{id}/delete`: the private recipe tool. All return 404 until `RECIPES_PASSWORD`, `RECIPES_SECRET` and `RECIPES_DB_PATH` are set.
 
 ## Rules
 - Never make HTTP requests from the app to its own URL. This caused an infinite loop before. Call the model code directly.
