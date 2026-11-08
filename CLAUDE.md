@@ -14,7 +14,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Saved recipes live in SQLite at `RECIPES_DB_PATH`, on the Render disk at `/var/data`. Anything else on the filesystem is lost on deploy. `recipes/backup.py` commits a daily JSON export to a private GitHub repo, and `scripts/restore_recipes.py` rebuilds the database from one.
 
 ## Endpoints
-- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or shows saved recipes, and only uses Prashand's own recipe.
+- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or shows saved recipes, and only uses Prashand's own recipe. Its only link into the tool is the login button.
 - `/sitemap.xml`, `/robots.txt`: for search engines
 - `/api/dog` (GET): API root
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
@@ -48,6 +48,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Templates in `templates/`, and each page extends `base.html`. Static files in `static/`.
 - Styling uses Tailwind 2.2.19 utility classes, served from a trimmed `static/css/site.css`. After adding a new class to a template, run `python scripts/build_css.py` and commit the result, or the class does nothing. A test fails if a class is missing. Match the existing look (white cards, `rounded-lg shadow-md p-8`, gray text).
 - New pages go in the `PAGES` table in `app.py`, which also feeds the sitemap.
+- Screenshots on `/recipe_tool`: add an image to `static/img/recipe_tool/`. The filename sets the order and caption, so `01-review-page.png` becomes "Review page". A test limits each to 500 KB. This repo is public, so don't commit screenshots of copied recipes, keys or private data.
 
 ## Positioning and content
 - The site presents Prashand as someone who takes AI products from business need to production. Hands-on projects are hobby work that keeps Prashand close to the technology. Keep this framing.

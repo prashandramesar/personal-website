@@ -5,12 +5,14 @@ import io
 import json
 import logging
 import os
+import re
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import numpy as np
 import uvicorn
@@ -42,6 +44,10 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "dog_breed_model_quantized.tflite"
 LABEL_MAP_PATH = BASE_DIR / "label_map.json"
+# Images dropped in here appear on the recipe tool's page. The filename sets
+# the order and caption, so "01-review-page.png" becomes "Review page".
+SCREENSHOT_DIR = BASE_DIR / "static" / "img" / "recipe_tool"
+SCREENSHOT_TYPES = {".png", ".jpg", ".jpeg", ".webp"}
 
 MAX_UPLOAD_BYTES = 16 * 1024 * 1024
 # Allows for multipart boundaries and headers around a maximum-size file.
@@ -75,9 +81,34 @@ PAGES = {
 flask_app = Flask(__name__)
 
 
+def find_screenshots(folder: Path = SCREENSHOT_DIR) -> list[dict[str, str]]:
+    """List a folder's images in filename order, with captions from their names."""
+    if not folder.is_dir():
+        return []
+    screenshots = []
+    for path in sorted(folder.iterdir(), key=lambda item: item.name.lower()):
+        if path.suffix.lower() not in SCREENSHOT_TYPES:
+            continue
+        words = re.sub(r"[-_]+", " ", re.sub(r"^\d+[-_ ]*", "", path.stem)).strip()
+        screenshots.append(
+            {
+                "url": f"/static/img/recipe_tool/{quote(path.name)}",
+                "caption": words[:1].upper() + words[1:],
+            }
+        )
+    return screenshots
+
+
+# Images only change with a deploy, so reading the folder once is enough.
+RECIPE_SCREENSHOTS = find_screenshots()
+
+
 @flask_app.context_processor
-def inject_current_year() -> dict[str, int]:
-    return {"current_year": date.today().year}
+def inject_template_values() -> dict[str, Any]:
+    return {
+        "current_year": date.today().year,
+        "recipe_screenshots": RECIPE_SCREENSHOTS,
+    }
 
 
 model: Interpreter | None = None
