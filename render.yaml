@@ -6,6 +6,26 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: ./start.sh
     healthCheckPath: /health
+    # Holds saved recipes. Needs a paid plan, and each deploy now has a few
+    # seconds of downtime, because only one instance can use a disk at a time.
+    plan: starter
+    disk:
+      name: recipes
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PRODUCTION
         value: true
+      - key: RECIPES_DB_PATH
+        value: /var/data/recipes.db
+      # Secrets: set these in the Render dashboard, and never commit their values.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: RECIPES_PASSWORD
+        sync: false
+      - key: RECIPES_SECRET
+        sync: false
+      - key: RECIPES_BACKUP_REPO
+        sync: false
+      - key: RECIPES_BACKUP_TOKEN
+        sync: false

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ recipe.title }}{% endblock %}
+{% block description %}A private recipe tool.{% endblock %}
+{% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<main class="container mx-auto px-6 py-12 max-w-3xl">
+    <p class="mb-4"><a href="/recipes" class="text-blue-600 hover:text-blue-700">Back to recipes</a></p>
+    {% if already %}<p class="text-gray-600 mb-4">You've already saved this recipe, so it wasn't imported again.</p>{% endif %}
+    <div class="bg-white rounded-lg shadow-md p-8">
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">{{ recipe.title }}</h1>
+        {% if recipe.servings %}<p class="text-gray-600">Servings: {{ recipe.servings }}</p>{% endif %}
+        {% if recipe.source_url %}<p class="text-gray-600 mb-4"><a href="{{ recipe.source_url }}" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-700">Original recipe</a></p>{% endif %}
+        {% for flag in recipe.flags %}<p class="text-red-600 mb-4">{{ flag_labels[flag] }}</p>{% endfor %}
+
+        <h2 class="text-xl font-bold text-gray-800 mt-6 mb-4">Ingredients</h2>
+        <ul>
+            {% for item in recipe.ingredients %}
+            <li class="py-1 text-gray-800">
+                {% if item.amount %}<strong>{{ item.amount }}</strong> {% endif %}{{ item.name }}
+                {% for flag in item.flags %}<span class="block text-red-600">{{ flag_labels[flag] }}</span>{% endfor %}
+                <span class="block text-gray-600">Original: {{ item.original }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <h2 class="text-xl font-bold text-gray-800 mt-6 mb-4">Steps</h2>
+        <ol>
+            {% for step in recipe.steps %}
+            <li class="py-2 text-gray-800">
+                {{ loop.index }}. {{ step.text }}
+                {% for flag in step.flags %}<span class="block text-red-600">{{ flag_labels[flag] }}</span>{% endfor %}
+            </li>
+            {% endfor %}
+        </ol>
+    </div>
+    <form method="post" action="/recipes/{{ recipe.id }}/delete" class="mt-6" onsubmit="return confirm('Delete this recipe?');">
+        <button type="submit" class="text-red-600 hover:text-red-700">Delete recipe</button>
+    </form>
+</main>
+{% endblock %}

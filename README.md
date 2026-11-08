@@ -8,6 +8,7 @@ This project is a personal portfolio website with a built-in dog breed classifie
 - Dog breed classifier that identifies 120 breeds from uploaded images
 - RESTful API for programmatic access to the classifier
 - Health check endpoint for monitoring
+- Private recipe tool: imports a recipe from a link, converts it to metric and Celsius, and saves it with search
 
 ## Architecture
 
@@ -33,6 +34,7 @@ Predictions call the model directly in the same process. Uploaded images are pro
 | `/predict` | POST | Dog breed prediction for the website and Android app |
 | `/health` | GET | Health check, returns 503 if the model failed to load |
 | `/sitemap.xml`, `/robots.txt` | GET | Search engine files |
+| `/recipes` and pages below it | GET, POST | Private recipe tool, behind a login. Returns 404 until it's configured. |
 
 ## Dog Breed Classifier
 

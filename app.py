@@ -1,5 +1,6 @@
 """Portfolio site and dog breed classifier, served by a single FastAPI app."""
 
+import asyncio
 import io
 import json
 import logging
@@ -27,6 +28,9 @@ from flask import Flask, render_template
 from PIL import Image, ImageOps, UnidentifiedImageError
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from recipes import backup as recipe_backup
+from recipes.routes import create_router as create_recipe_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -137,7 +141,16 @@ class MaxBodySizeMiddleware:
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     load_model()
+    backup_config = recipe_backup.backup_config()
+    db_path = os.environ.get("RECIPES_DB_PATH")
+    backup_task = (
+        asyncio.create_task(recipe_backup.run_forever(Path(db_path), backup_config))
+        if backup_config and db_path
+        else None
+    )
     yield
+    if backup_task:
+        backup_task.cancel()
 
 
 def load_model() -> None:
@@ -241,12 +254,15 @@ def classify(contents: bytes) -> list[dict[str, str | float]]:
 
 
 def render_page(
-    template_name: str, path: str | None = None, status_code: int = 200
+    template_name: str,
+    path: str | None = None,
+    status_code: int = 200,
+    **context: Any,
 ) -> HTMLResponse:
     canonical_url = f"{SITE_URL}{path}" if path else None
     with flask_app.app_context():
         html = render_template(
-            template_name, canonical_url=canonical_url, site_url=SITE_URL
+            template_name, canonical_url=canonical_url, site_url=SITE_URL, **context
         )
     return HTMLResponse(content=html, status_code=status_code)
 
@@ -305,6 +321,8 @@ def add_page(path: str, template_name: str) -> None:
 
 for page_path, page_template in PAGES.items():
     add_page(page_path, page_template)
+
+app.include_router(create_recipe_router(render_page))
 
 
 @app.exception_handler(404)
