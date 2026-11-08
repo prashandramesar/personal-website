@@ -14,7 +14,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Saved recipes live in SQLite at `RECIPES_DB_PATH`, on the Render disk at `/var/data`. Anything else on the filesystem is lost on deploy. `recipes/backup.py` commits a daily JSON export to a private GitHub repo, and `scripts/restore_recipes.py` rebuilds the database from one.
 
 ## Endpoints
-- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/this_website`: HTML pages
+- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or shows saved recipes, and only uses Prashand's own recipe.
 - `/sitemap.xml`, `/robots.txt`: for search engines
 - `/api/dog` (GET): API root
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
@@ -30,6 +30,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - No bare `except`. Catch specific exceptions.
 - Allowed upload types: png, jpg, jpeg, checked from the file contents. Max 16MB.
 - The Render instance has 0.5 CPU and 512 MB RAM. Check memory use before anything that loads large data, and don't hold extra full-size copies of uploaded images.
+- Don't add the YouTube Data API or a transcript library to the recipe tool. Its policies bar storing Non-Authorized Data past 30 days and creating derived data, with no personal-use exemption, so Shorts are pasted. Reread the policies first if this comes up again.
 - Keep Flask pinned to 2.2.3 and Werkzeug to 2.2.3 in requirements.txt.
 - Don't claim accuracy figures on the site unless they come from a measured result.
 - Recipe tool pages stay out of `PAGES`, so they stay out of the sitemap. Every route must check the login, and every POST must also check `is_same_origin`.

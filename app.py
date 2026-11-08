@@ -66,6 +66,7 @@ PAGES = {
     "/projects": "projects.html",
     "/dog_classifier": "dog_classifier.html",
     "/android_app": "android_app.html",
+    "/recipe_tool": "recipe_tool.html",
     "/this_website": "this_website.html",
     "/about": "about.html",
 }

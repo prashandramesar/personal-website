@@ -339,6 +339,51 @@ def test_step_quantities(text: str, expected: str) -> None:
     assert convert_step(text, region="US").text == expected
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Finally, strain the masala chai into two cups and add sugar to taste. Enjoy!",
+        "Pour into 2 cups, then add sugar.",
+        "Divide among 4 cups with butter on top.",
+    ],
+)
+def test_serving_cups_are_not_read_as_a_later_ingredient(text: str) -> None:
+    assert convert_step(text, region="US").text == text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Add 2 cups and stir in sugar.", "Add 475 ml and stir in sugar."),
+        ("Add 1 cup water and flour.", "Add 235 ml water and flour."),
+        ("Add 1 cup sifted flour and mix.", "Add ≈ 125 g sifted flour and mix."),
+        ("Whisk into 1 cup milk and rest.", "Whisk into 235 ml milk and rest."),
+    ],
+)
+def test_an_amount_only_uses_the_ingredient_right_after_it(
+    text: str, expected: str
+) -> None:
+    assert convert_step(text, region="US").text == expected
+
+
+@pytest.mark.parametrize(
+    ("quantity", "quantity_max", "unit", "expected"),
+    [
+        (1, None, "inch", "2.5 cm"),
+        (1, None, "-inch", "2.5 cm"),
+        (2, None, "inches", "5 cm"),
+        (1, 2, "inch", "2.5-5 cm"),
+        (0.5, None, "inch", "1.5 cm"),
+    ],
+)
+def test_ingredient_lengths_become_centimetres(
+    quantity: float, quantity_max: float | None, unit: str, expected: str
+) -> None:
+    result = convert_ingredient("ginger", "ginger", quantity, quantity_max, unit)
+    assert result.amount == expected
+    assert result.flags == ()
+
+
 def test_step_converts_temperature_and_quantity_together() -> None:
     result = convert_step("Add 1 cup flour, then bake at 350°F.", region="US")
     assert result.text == "Add ≈ 125 g flour, then bake at 175°C."
