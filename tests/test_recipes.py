@@ -2,6 +2,7 @@
 
 import base64
 import json
+import re
 import socket
 import subprocess
 import sys
@@ -1619,33 +1620,22 @@ def test_site_still_works_without_the_tool_configured(
         assert client.get("/health").status_code == 200
 
 
-# Each ingredient on the demo page: the text shown, then how it's converted.
-DEMO_INGREDIENTS: list[tuple[str, float, float | None, str | None, str, str]] = [
-    ("1½ cups water", 1.5, None, "cups", "water", "355 ml water"),
-    (
-        "1 cup full-fat or whole milk (adjust for creaminess)",
-        1,
-        None,
-        "cup",
-        "whole milk",
-        "235 ml full-fat or whole milk (adjust for creaminess)",
-    ),
-    (
-        "2 to 3 teaspoons loose-leaf black tea",
-        2,
-        3,
-        "teaspoons",
-        "loose-leaf black tea",
-        "10-15 ml loose-leaf black tea",
-    ),
-    (
-        "1-inch piece of fresh ginger root, crushed or grated",
-        1,
-        None,
-        "inch",
-        "fresh ginger root",
-        "2.5 cm piece of fresh ginger root, crushed or grated",
-    ),
+# The ingredients converted on the demo page: the amount as written, how it's
+# parsed, and the amount shown.
+DEMO_CONVERSIONS: list[tuple[str, float, float | None, str, str, str]] = [
+    ("1½ cups", 1.5, None, "cups", "water", "355 ml"),
+    ("1 cup", 1, None, "cup", "whole milk", "235 ml"),
+    ("2 to 3 teaspoons", 2, 3, "teaspoons", "loose-leaf black tea", "10-15 ml"),
+    ("1-inch", 1, None, "inch", "fresh ginger root", "2.5 cm"),
+]
+DEMO_UNCHANGED: list[tuple[str, float | None, float | None, str | None, str, str]] = [
+    ("3 green cardamom pods, lightly crushed", 3, None, "pods", "cardamom", "3 pods"),
+    ("1 small cinnamon stick", 1, None, "stick", "cinnamon", "1 stick"),
+    ("2 cloves", 2, None, "cloves", "cloves", "2 cloves"),
+    ("3 to 4 black peppercorns, crushed", 3, 4, None, "peppercorns", "3-4"),
+    ("1 whole star anise", 1, None, None, "star anise", "1"),
+    ("A pinch of fennel seeds", 1, None, "pinch", "fennel seeds", "1 pinch"),
+    ("Sugar, to taste", None, None, None, "sugar", ""),
 ]
 DEMO_STEPS = [
     "Simmer the whole spices and ginger in boiling water for 3-4 minutes.",
@@ -1663,22 +1653,39 @@ def demo_page() -> str:
 
 
 @pytest.mark.parametrize(
-    ("original", "quantity", "quantity_max", "unit", "name", "shown"),
-    DEMO_INGREDIENTS,
+    ("before", "quantity", "quantity_max", "unit", "name", "after"),
+    DEMO_CONVERSIONS,
 )
 def test_demo_shows_what_the_converter_really_produces(
     demo_page: str,
-    original: str,
+    before: str,
     quantity: float,
+    quantity_max: float | None,
+    unit: str,
+    name: str,
+    after: str,
+) -> None:
+    result = convert_ingredient(before, name, quantity, quantity_max, unit)
+    assert result.amount == after
+    assert f'text-gray-500">{before}</span>' in demo_page
+    assert f'text-blue-600">{after}</span>' in demo_page
+
+
+@pytest.mark.parametrize(
+    ("text", "quantity", "quantity_max", "unit", "name", "amount"), DEMO_UNCHANGED
+)
+def test_demo_lists_what_the_converter_leaves_alone(
+    demo_page: str,
+    text: str,
+    quantity: float | None,
     quantity_max: float | None,
     unit: str | None,
     name: str,
-    shown: str,
+    amount: str,
 ) -> None:
-    result = convert_ingredient(original, name, quantity, quantity_max, unit)
-    assert shown.startswith(result.amount)
-    assert f"<p>{original}</p>" in demo_page
-    assert f"<p>{shown}</p>" in demo_page
+    result = convert_ingredient(text, name, quantity, quantity_max, unit)
+    assert result.amount == amount
+    assert f'<li class="py-1">{text}</li>' in demo_page
 
 
 @pytest.mark.parametrize("step", DEMO_STEPS)
@@ -1687,14 +1694,20 @@ def test_demo_steps_are_what_the_converter_returns(demo_page: str, step: str) ->
     assert step in demo_page
 
 
-def test_demo_is_public_and_listed(demo_page: str) -> None:
+def test_demo_shows_each_ingredient_once(demo_page: str) -> None:
+    assert demo_page.count("loose-leaf black tea") == 1
+    assert demo_page.count("cinnamon stick") == 1
+
+
+def test_demo_is_public_and_linked_from_the_main_pages(demo_page: str) -> None:
     with TestClient(portfolio.app) as client:
+        assert "/recipe_tool" in client.get("/").text
         assert "/recipe_tool" in client.get("/projects").text
         assert "/recipe_tool" in client.get("/sitemap.xml").text
     assert "noindex" not in demo_page
 
 
-def test_demo_links_to_nothing_private_and_calls_no_api(
+def test_demo_links_only_to_the_login_and_calls_no_api(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def must_not_run() -> None:
@@ -1704,4 +1717,70 @@ def test_demo_links_to_nothing_private_and_calls_no_api(
     with TestClient(portfolio.app) as client:
         response = client.get("/recipe_tool")
     assert response.status_code == 200
-    assert "/recipes" not in response.text
+    assert re.findall(r'href="(/recipes[^"]*)"', response.text) == ["/recipes/login"]
+
+
+def test_login_stays_private_when_linked_from_the_demo(
+    tool: tuple[TestClient, RecipeStore], demo_page: str
+) -> None:
+    assert 'href="/recipes/login" rel="nofollow"' in demo_page
+    response = tool[0].get("/recipes/login")
+    assert response.status_code == 200
+    assert "noindex" in response.headers["x-robots-tag"]
+
+
+def test_screenshots_are_found_in_order_with_captions(tmp_path: Path) -> None:
+    for name in (
+        "02_import-page.PNG",
+        "01-review-page.png",
+        "search results.webp",
+        "notes.txt",
+        ".gitkeep",
+    ):
+        (tmp_path / name).write_bytes(b"x")
+
+    assert portfolio.find_screenshots(tmp_path) == [
+        {"url": "/static/img/recipe_tool/01-review-page.png", "caption": "Review page"},
+        {"url": "/static/img/recipe_tool/02_import-page.PNG", "caption": "Import page"},
+        {
+            "url": "/static/img/recipe_tool/search%20results.webp",
+            "caption": "Search results",
+        },
+    ]
+
+
+def test_missing_screenshot_folder_means_no_screenshots(tmp_path: Path) -> None:
+    assert portfolio.find_screenshots(tmp_path / "missing") == []
+
+
+def test_screenshot_section_only_appears_with_screenshots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with TestClient(portfolio.app) as client:
+        monkeypatch.setattr(portfolio, "RECIPE_SCREENSHOTS", [])
+        assert "Screenshots</h2>" not in client.get("/recipe_tool").text
+
+        monkeypatch.setattr(
+            portfolio,
+            "RECIPE_SCREENSHOTS",
+            [{"url": "/static/img/recipe_tool/a.png", "caption": "<b>Review</b> page"}],
+        )
+        page = client.get("/recipe_tool").text
+    assert "Screenshots</h2>" in page
+    assert 'src="/static/img/recipe_tool/a.png"' in page
+    assert "<b>Review</b>" not in page
+
+
+def test_committed_screenshots_are_small_enough() -> None:
+    """Fails if an image would slow the page. Compress it, or resize it, first."""
+    for path in portfolio.SCREENSHOT_DIR.iterdir():
+        if path.suffix.lower() in portfolio.SCREENSHOT_TYPES:
+            assert path.stat().st_size <= 500 * 1024, f"{path.name} is over 500 KB"
+
+
+def test_homepage_links_to_the_demo_and_the_login_only() -> None:
+    with TestClient(portfolio.app) as client:
+        page = client.get("/").text
+    assert re.findall(r'href="(/recipes[^"]*)"', page) == ["/recipes/login"]
+    assert 'href="/recipes/login" rel="nofollow"' in page
+    assert 'href="/recipe_tool"' in page

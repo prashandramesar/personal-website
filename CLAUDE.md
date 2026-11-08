@@ -14,7 +14,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Saved recipes live in SQLite at `RECIPES_DB_PATH`, on the Render disk at `/var/data`. Anything else on the filesystem is lost on deploy. `recipes/backup.py` commits a daily JSON export to a private GitHub repo, and `scripts/restore_recipes.py` rebuilds the database from one.
 
 ## Endpoints
-- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or shows saved recipes, and only uses Prashand's own recipe.
+- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or reads saved recipes, and its worked example is Prashand's own recipe. The login page is the only link into the tool, from this page and the homepage.
 - `/sitemap.xml`, `/robots.txt`: for search engines
 - `/api/dog` (GET): API root
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
@@ -37,7 +37,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Only fetch user-supplied URLs through `fetch_page`, which checks every redirect against private addresses. If a site blocks the tool, report it and don't work around it, so no browser impersonation or proxies. `SOCIAL_DOMAINS` are never requested, because their terms bar scraping, so their posts are pasted instead.
 - Text from fetched pages is untrusted. Keep it inside the `<source>` tags, and don't give the extraction call any tools.
 - Secrets go in Render's Environment page, and `render.yaml` only lists their names with `sync: false`. Never put a secret in a URL, because `httpx` logs request URLs.
-- Saved recipes are private and may be copyrighted. Never commit them to this public repo or show them on a public page. The backup code refuses a repo that isn't private.
+- Saved recipes are private and may be copyrighted. Never commit them to this public repo or show them on a public page, apart from the partial views in the `/recipe_tool` screenshots. The backup code refuses a repo that isn't private.
 
 ## Dependencies
 - `requirements.txt` is what Render installs. `requirements-dev.txt` adds the dev tools.
@@ -48,6 +48,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Templates in `templates/`, and each page extends `base.html`. Static files in `static/`.
 - Styling uses Tailwind 2.2.19 utility classes, served from a trimmed `static/css/site.css`. After adding a new class to a template, run `python scripts/build_css.py` and commit the result, or the class does nothing. A test fails if a class is missing. Match the existing look (white cards, `rounded-lg shadow-md p-8`, gray text).
 - New pages go in the `PAGES` table in `app.py`, which also feeds the sitemap.
+- Screenshots on `/recipe_tool`: add an image to `static/img/recipe_tool/`. The filename sets the order and caption, so `01-review-page.png` becomes "Review page". A test limits each to 500 KB. This repo is public. Prashand chose to allow titles, links and a few ingredient lines from imported recipes in these screenshots, but never written steps, full recipes, keys or private data.
 
 ## Positioning and content
 - The site presents Prashand as someone who takes AI products from business need to production. Hands-on projects are hobby work that keeps Prashand close to the technology. Keep this framing.
