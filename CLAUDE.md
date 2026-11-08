@@ -8,8 +8,10 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Model: MobileNetV2 as TensorFlow Lite (`dog_breed_model_quantized.tflite`) with `label_map.json`, run with the `ai-edge-litert` interpreter and loaded in the FastAPI lifespan handler. Training code is in the `dog-breed-model` repo.
 - Model input is 224x224 RGB `float32` scaled to [0, 1], which matches training. Output is 120 classes.
 - Uploads are processed in memory. Never write them to disk or under `static/`.
-- Recipe conversion: `recipes/convert.py` does all metric and Celsius arithmetic, and a language model must never calculate a quantity. Not connected to any route yet.
+- Recipe tool: private pages under `/recipes`, in the `recipes/` package. A link goes through `fetch.py` (safe fetching), `extract.py` (trim the page, one Claude call, then convert), a review page, and `store.py` (SQLite with FTS5 search).
+- Recipe conversion: `recipes/convert.py` does all metric and Celsius arithmetic, and a language model must never calculate a quantity.
 - `recipes/densities.json` holds cup weights from USDA FoodData Central, with the `fdc_id` and portion for each. Only add values with a source. If an ingredient isn't listed, show ml and flag it, and never guess grams.
+- Saved recipes live in SQLite at `RECIPES_DB_PATH`, on the Render disk at `/var/data`. Anything else on the filesystem is lost on deploy. `recipes/backup.py` commits a daily JSON export to a private GitHub repo, and `scripts/restore_recipes.py` rebuilds the database from one.
 
 ## Endpoints
 - `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/this_website`: HTML pages
@@ -18,6 +20,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
 - `/predict` (POST, multipart `file`): same prediction, used by the website form and the Android app. Errors use an `error` field.
 - `/health` (GET): returns 503 if the model failed to load
+- `/recipes`, `/recipes/login`, `/recipes/logout`, `/recipes/import`, `/recipes/save`, `/recipes/export`, `/recipes/{id}`, `/recipes/{id}/delete`: the private recipe tool. All return 404 until `RECIPES_PASSWORD`, `RECIPES_SECRET` and `RECIPES_DB_PATH` are set.
 
 ## Rules
 - Never make HTTP requests from the app to its own URL. This caused an infinite loop before. Call the model code directly.
@@ -29,6 +32,11 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - The Render instance has 0.5 CPU and 512 MB RAM. Check memory use before anything that loads large data, and don't hold extra full-size copies of uploaded images.
 - Keep Flask pinned to 2.2.3 and Werkzeug to 2.2.3 in requirements.txt.
 - Don't claim accuracy figures on the site unless they come from a measured result.
+- Recipe tool pages stay out of `PAGES`, so they stay out of the sitemap. Every route must check the login, and every POST must also check `is_same_origin`.
+- Only fetch user-supplied URLs through `fetch_page`, which checks every redirect against private addresses. If a site blocks the tool, report it and don't work around it, so no browser impersonation or proxies.
+- Text from fetched pages is untrusted. Keep it inside the `<source>` tags, and don't give the extraction call any tools.
+- Secrets go in Render's Environment page, and `render.yaml` only lists their names with `sync: false`. Never put a secret in a URL, because `httpx` logs request URLs.
+- Saved recipes are private and may be copyrighted. Never commit them to this public repo or show them on a public page. The backup code refuses a repo that isn't private.
 
 ## Dependencies
 - `requirements.txt` is what Render installs. `requirements-dev.txt` adds the dev tools.

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Recipes{% endblock %}
+{% block description %}A private recipe tool.{% endblock %}
+{% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block content %}
+<main class="container mx-auto px-6 py-12 max-w-3xl">
+    {% if storage_warning %}<p class="text-red-600 mb-4" role="alert">{{ storage_warning }}</p>{% endif %}
+    {% if backup_warning %}<p class="text-red-600 mb-4" role="alert">{{ backup_warning }}</p>{% endif %}
+    <div class="bg-white rounded-lg shadow-md p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Recipes</h1>
+            <a href="/recipes/import" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Import</a>
+        </div>
+        <form method="get" action="/recipes" class="flex mb-6">
+            <label for="q" class="hidden">Search recipes</label>
+            <input id="q" name="q" type="search" value="{{ query }}" placeholder="Search by title or ingredient"
+                class="w-full border border-gray-300 rounded-lg p-2 mr-2">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Search</button>
+        </form>
+        {% if recipes %}
+        <ul>
+            {% for recipe in recipes %}
+            <li class="py-2"><a href="/recipes/{{ recipe.id }}" class="text-blue-600 hover:text-blue-700">{{ recipe.title }}</a></li>
+            {% endfor %}
+        </ul>
+        {% elif query %}
+        <p class="text-gray-600">No recipes match that search.</p>
+        {% else %}
+        <p class="text-gray-600">No saved recipes yet.</p>
+        {% endif %}
+    </div>
+    <div class="flex justify-between items-center mt-6">
+        <a href="/recipes/export" class="text-blue-600 hover:text-blue-700">Download a backup (JSON)</a>
+        <form method="post" action="/recipes/logout">
+            <button type="submit" class="text-gray-600 hover:text-blue-600">Log out</button>
+        </form>
+    </div>
+</main>
+{% endblock %}

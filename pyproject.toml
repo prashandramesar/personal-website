@@ -6,19 +6,23 @@ readme = "README.md"
 requires-python = ">=3.11"
 # Mirrors requirements.txt, which is what Render installs.
 dependencies = [
+    "anthropic==2.6.0",
+    "beautifulsoup4==4.15.0",
     "fastapi==0.162.0",
     "flask==2.2.3",
+    "httpx==0.28.1",
     "numpy==2.0.2",
     "pillow==13.0.0",
+    "pydantic==2.14.3",
     "python-multipart==0.0.33",
     "ai-edge-litert==2.3.0",
+    "recipe-scrapers==15.13.0",
     "uvicorn==0.23.2",
     "werkzeug==2.2.3",
 ]
 
 [dependency-groups]
 dev = [
-    "httpx==0.28.1",
     "mypy==1.15.0",
     "pre-commit==4.1.0",
     "pytest==8.3.4",
