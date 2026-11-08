@@ -298,6 +298,16 @@ a, button, summary { -webkit-tap-highlight-color: transparent; touch-action: man
 .site-links a { color: var(--muted); transition: color 100ms ease; }
 .site-links a:hover, .site-links a[aria-current="page"] { color: var(--fg); }
 .site-actions { display: flex; align-items: center; gap: 0.25rem; }
+.site-recipes {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+    white-space: nowrap;
+    color: var(--muted);
+    transition: color 100ms ease;
+}
+.site-recipes:hover { color: var(--fg); }
 
 #menu-toggle { display: inline-flex; }
 
