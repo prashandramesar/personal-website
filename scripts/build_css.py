@@ -1,4 +1,4 @@
-"""Build static/css/site.css from the prebuilt Tailwind 2.2.19 stylesheet.
+"""Build static/css/site.css from Tailwind 2.2.19 and static/css/theme.css.
 
 Keeps only the rules for classes the templates use, so visitors don't download
 the full 3 MB file. Rerun this after adding a new Tailwind class to a template:
@@ -15,6 +15,7 @@ SOURCE_URL = (
     "https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
 )
 OUTPUT = ROOT / "static" / "css" / "site.css"
+THEME = ROOT / "static" / "css" / "theme.css"
 SCANNED_FILES = [*(ROOT / "templates").glob("*.html"), *(ROOT / "static").rglob("*.js")]
 CLASS_IN_SELECTOR = re.compile(r"\.((?:\\.|[\w-])+)")
 
@@ -86,7 +87,9 @@ def main() -> None:
     source = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(purge(source, used_tokens()) + "\n", encoding="utf-8")
+    # The theme comes last, so its tokens and components win over Tailwind.
+    theme = THEME.read_text(encoding="utf-8")
+    OUTPUT.write_text(purge(source, used_tokens()) + "\n" + theme, encoding="utf-8")
     print(f"{OUTPUT.name}: {len(source):,} -> {OUTPUT.stat().st_size:,} bytes")
 
 

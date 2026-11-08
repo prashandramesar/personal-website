@@ -1668,8 +1668,8 @@ def test_demo_shows_what_the_converter_really_produces(
 ) -> None:
     result = convert_ingredient(before, name, quantity, quantity_max, unit)
     assert result.amount == after
-    assert f'text-gray-500">{before}</span>' in demo_page
-    assert f'text-blue-600">{after}</span>' in demo_page
+    assert f'text-muted">{before}</span>' in demo_page
+    assert f'text-accent">{after}</span>' in demo_page
 
 
 @pytest.mark.parametrize(
@@ -2202,13 +2202,13 @@ def test_starring_and_unstarring_through_the_page(
     assert listed_titles(client.get("/recipes", params={"favorites": "1"}).text) == [
         "Soup"
     ]
-    assert "★</button>" in client.get(f"/recipes/{recipe_id}").text
+    assert 'aria-pressed="true"' in client.get(f"/recipes/{recipe_id}").text
 
     client.post(
         f"/recipes/{recipe_id}/favorite", data={"favorite": "0"}, headers=ORIGIN
     )
     assert listed_titles(client.get("/recipes", params={"favorites": "1"}).text) == []
-    assert "☆</button>" in client.get(f"/recipes/{recipe_id}").text
+    assert 'aria-pressed="false"' in client.get(f"/recipes/{recipe_id}").text
 
 
 def test_a_double_tap_on_a_star_leaves_it_starred(
@@ -2268,7 +2268,7 @@ def test_star_never_redirects_outside_the_tool(
 
 def listed_titles(html: str) -> list[str]:
     return re.findall(
-        r'<a href="/recipes/\d+" class="text-blue-600 hover:text-blue-700">([^<]+)</a>',
+        r'<a href="/recipes/\d+" class="recipe-link">([^<]+)</a>',
         html,
     )
 
@@ -2354,15 +2354,14 @@ def test_recipe_page_has_the_keep_screen_on_control(
     assert "navigator.wakeLock.request('screen')" in page
 
 
-def test_tool_pages_use_more_width_on_phones(
+def test_tool_pages_use_the_narrow_page_layout(
     tool: tuple[TestClient, RecipeStore],
 ) -> None:
     client, store = tool
     log_in(client)
     for path in (f"/recipes/{save_sample(store)}", "/recipes", "/recipes/import"):
         page = client.get(path).text
-        assert "px-2 md:px-6" in page
-        assert "p-4 md:p-8" in page
+        assert 'class="page wrap wrap-narrow"' in page
 
 
 def save_flagged(store: RecipeStore, flags: list[str], step_flags: list[str]) -> int:
@@ -2435,7 +2434,10 @@ def test_originals_are_hidden_until_tapped(
     client, store = tool
     log_in(client)
     page = client.get(f"/recipes/{save_flagged(store, [], [])}").text
-    assert page.count('<span data-original class="hidden text-gray-600">') == 2
+    assert (
+        page.count('<span data-original class="hidden ingredient-note text-muted">')
+        == 2
+    )
     assert "Original: 1 cup flour" in page
     assert 'id="originals-button"' in page
 
@@ -2449,7 +2451,7 @@ def test_review_page_keeps_originals_and_line_notes_visible(
     page = client.post(
         "/recipes/import", data={"url": "https://example.com/cake"}, headers=ORIGIN
     ).text
-    assert '<p class="text-gray-600 mt-1">Original: 1 cup flour</p>' in page
+    assert '<p class="text-muted mt-1">Original: 1 cup flour</p>' in page
     assert "Assumed US measures" in page
 
 

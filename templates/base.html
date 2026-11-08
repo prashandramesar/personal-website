@@ -14,20 +14,37 @@
     <link rel="canonical" href="{{ canonical_url }}">
     <meta property="og:url" content="{{ canonical_url }}">
     {% endif %}
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfcfd">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1116">
+    <!-- Runs before the first paint, so a saved theme never flashes the other one. -->
+    <script>
+        (function () {
+            try {
+                var theme = localStorage.getItem('theme');
+                if (theme === 'light' || theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', theme);
+                }
+            } catch (e) {
+                // Blocked storage falls back to the system setting.
+            }
+        })();
+    </script>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/css/site.css">
     {% block head %}{% endblock %}
 </head>
-<body class="bg-gray-100 font-sans">
+<body>
     {% include 'navbar.html' %}
 
     {% block content %}{% endblock %}
 
-    <footer class="bg-gray-800 text-white py-8 {% block footer_margin %}mt-12{% endblock %}">
-        <div class="container mx-auto px-6 text-center">
+    <footer class="site-footer">
+        <div class="wrap">
             <p>© {{ current_year }} Prashand Ramesar - All Rights Reserved</p>
         </div>
     </footer>
+    <script src="/static/js/site.js" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

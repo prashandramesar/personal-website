@@ -1,158 +1,80 @@
 {% extends 'base.html' %}
+{% import 'icons.html' as icons %}
+{% import 'work.html' as work %}
 
 {% block title %}Prashand Ramesar | AI Product and Delivery Lead{% endblock %}
 {% block description %}Prashand Ramesar takes AI products from business need to production, and keeps building hands-on projects to stay close to the technology.{% endblock %}
 
-{% block footer_margin %}{% endblock %}
-
 {% block content %}
-    <!-- Hero Section -->
-    <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-        <div class="container mx-auto px-6 py-20">
-            <h1 class="text-4xl md:text-5xl font-bold mb-4">Hi, I'm <span class="text-yellow-300">Prashand Ramesar</span></h1>
-            <h2 class="text-xl md:text-2xl mb-8">AI Product &amp; Delivery Lead | Senior Data Scientist</h2>
-            <p class="text-xl mb-10 max-w-2xl">
-                I take AI products from business need to production, keeping stakeholders, priorities and teams aligned along the way. I still build in my own time, to stay close to the technology.
-            </p>
-            <div class="flex flex-wrap gap-4">
-                <a href="/kaai" class="bg-white text-blue-600 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition duration-300">
-                    Read the KAAI case study
-                </a>
-                <a href="/dog_classifier" class="border-2 border-white text-white font-bold py-3 px-6 rounded-lg hover:bg-white hover:text-blue-600 transition duration-300">
-                    Try a live AI demo
-                </a>
-                <a href="/recipes" rel="nofollow" class="text-white font-bold py-3 hover:text-yellow-300 transition duration-300">
-                    My recipes →
-                </a>
-            </div>
+<main>
+    <div class="wrap hero">
+        <p class="eyebrow mb-6">Prashand Ramesar · AI Product &amp; Delivery Lead · Senior Data Scientist</p>
+        <h1 class="display mb-6">I lead AI products, from need to production.</h1>
+        <p class="lead mb-8">
+            I keep stakeholders, priorities and teams aligned along the way, and I still build in my own time, to stay close to the technology.
+        </p>
+        <div class="flex flex-wrap items-center gap-4">
+            <a href="/kaai" class="btn btn-primary">Read the KAAI case study</a>
+            <a href="/dog_classifier" class="btn">Try a live AI demo</a>
+            <a href="/recipes" rel="nofollow" class="link-arrow">My recipes {{ icons.arrow() }}</a>
         </div>
     </div>
 
-    <!-- Proof -->
-    <div class="bg-white shadow-md">
-        <div class="container mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <a href="/kaai" class="block hover:text-blue-600 transition duration-300">
-                <p class="text-xl font-bold mb-1">A few months</p>
-                <p class="text-gray-600">From business need to a full AI product in production, across many disciplines.</p>
+    <div class="section">
+        <div class="wrap proof">
+            <a href="/kaai" class="block">
+                <p class="subtitle mb-2">A few months</p>
+                <p class="text-muted">From business need to a full AI product in production, across many disciplines.</p>
             </a>
-            <a href="/kaai" class="block hover:text-blue-600 transition duration-300">
-                <p class="text-xl font-bold mb-1">Lower operational cost</p>
-                <p class="text-gray-600">Senior management credits KAAI with contributing to lower cost for the business.</p>
+            <a href="/kaai" class="block">
+                <p class="subtitle mb-2">Lower operational cost</p>
+                <p class="text-muted">Senior management credits KAAI with contributing to lower cost for the business.</p>
             </a>
-            <a href="/dog_classifier" class="block hover:text-blue-600 transition duration-300">
-                <p class="text-xl font-bold mb-1">120 dog breeds, live</p>
-                <p class="text-gray-600">A hobby project you can try now, on the web or in its Android app.</p>
+            <a href="/dog_classifier" class="block">
+                <p class="subtitle mb-2">120 dog breeds, live</p>
+                <p class="text-muted">A hobby project you can try now, on the web or in its Android app.</p>
             </a>
         </div>
     </div>
 
-    <!-- Featured Work -->
-    <div id="featured-projects" class="container mx-auto px-6 py-16">
-        <h2 class="text-3xl font-bold text-center mb-12">Featured Work</h2>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <!-- KAAI -->
-            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                <div class="bg-gradient-to-r from-blue-500 to-indigo-600 w-full h-48 flex items-center justify-center">
-                    <span class="text-5xl font-bold text-white">KAAI</span>
-                </div>
-                <div class="p-6">
-                    <h3 class="text-xl font-bold mb-2">KAAI</h3>
-                    <p class="text-gray-600 mb-4">
-                        AI agents that answer human call center agents' questions during live calls, and proactively suggest what to ask next.
-                    </p>
-                    <a href="/kaai" class="text-blue-600 font-medium hover:text-blue-800">
-                        Read the case study →
-                    </a>
-                </div>
+    <div id="featured-projects" class="section">
+        <div class="wrap">
+            <h2 class="title mb-8">Featured Work</h2>
+            <div class="work-list">
+                {{ work.row("KAAI", "/kaai", "AI agents that answer human call center agents' questions during live calls, and proactively suggest what to ask next.") }}
+                {{ work.row("Dog Breed Classifier", "/dog_classifier", "A hobby project: a computer vision model that identifies 120 dog breeds from your photo.") }}
+                {{ work.row("Android App", "/android_app", "A hobby project: the classifier as a mobile app, built in a weekend with no prior Android experience.") }}
+                {{ work.row("Recipe Tool", "/recipe_tool", "A hobby project: turns a recipe link or caption into a clean, metric recipe. Claude reads the text, and plain code does the arithmetic.", login="/recipes/login") }}
             </div>
-
-            <!-- Dog Breed Classifier -->
-            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                <img src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=800&q=70&auto=format" alt="A dog looking at the camera" class="w-full h-48 object-cover">
-                <div class="p-6">
-                    <h3 class="text-xl font-bold mb-2">Dog Breed Classifier</h3>
-                    <p class="text-gray-600 mb-4">
-                        A hobby project: a computer vision model that identifies 120 dog breeds from your photo.
-                    </p>
-                    <a href="/dog_classifier" class="text-blue-600 font-medium hover:text-blue-800">
-                        Try it out →
-                    </a>
-                </div>
-            </div>
-
-            <!-- Android App -->
-            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                <img src="/static/img/android.png" alt="Android logo" class="w-full h-48 object-cover">
-                <div class="p-6">
-                    <h3 class="text-xl font-bold mb-2">Android App</h3>
-                    <p class="text-gray-600 mb-4">
-                        A hobby project: the classifier as a mobile app, built in a weekend with no prior Android experience.
-                    </p>
-                    <a href="/android_app" class="text-blue-600 font-medium hover:text-blue-800">
-                        Learn more →
-                    </a>
-                </div>
-            </div>
-
-            <!-- Recipe Tool -->
-            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                <div class="bg-gradient-to-r from-blue-500 to-indigo-600 w-full h-48 flex items-center justify-center">
-                    <span class="text-5xl font-bold text-white">Recipes</span>
-                </div>
-                <div class="p-6">
-                    <h3 class="text-xl font-bold mb-2">Recipe Tool</h3>
-                    <p class="text-gray-600 mb-4">
-                        A hobby project: turns a recipe link or caption into a clean, metric recipe. Claude reads the text, and plain code does the arithmetic.
-                    </p>
-                    <div class="flex justify-between">
-                        <a href="/recipe_tool" class="text-blue-600 font-medium hover:text-blue-800">
-                            See the demo →
-                        </a>
-                        <a href="/recipes/login" rel="nofollow" class="text-gray-600 hover:text-gray-800">
-                            Log in
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="text-center mt-12">
-            <a href="/projects" class="inline-block border-2 border-blue-600 text-blue-600 font-medium py-2 px-6 rounded-lg hover:bg-blue-600 hover:text-white transition duration-300">
-                View All Work
-            </a>
+            <a href="/projects" class="link-arrow mt-6">View All Work {{ icons.arrow() }}</a>
         </div>
     </div>
 
-    <!-- Skills Section -->
-    <div class="bg-gray-900 text-white py-16">
-        <div class="container mx-auto px-6">
-            <h2 class="text-3xl font-bold text-center mb-12">What I Bring</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <div class="section">
+        <div class="wrap">
+            <h2 class="title mb-8">What I Bring</h2>
+            <div class="skill-list">
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-yellow-300">Leading delivery</h3>
-                    <ul class="space-y-2">
+                    <h3 class="subtitle mb-4">Leading delivery</h3>
+                    <ul>
                         <li>Stakeholder management</li>
                         <li>Handling priorities and ad hoc requests</li>
                         <li>Escalating to senior management</li>
                         <li>Team motivation and mentoring</li>
                     </ul>
                 </div>
-
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-yellow-300">Process optimization</h3>
-                    <ul class="space-y-2">
+                    <h3 class="subtitle mb-4">Process optimization</h3>
+                    <ul>
                         <li>Scoping business requirements</li>
                         <li>Translating them into technical requirements</li>
                         <li>AI support for call center work</li>
                         <li>Working across disciplines and countries</li>
                     </ul>
                 </div>
-
                 <div>
-                    <h3 class="text-xl font-bold mb-4 text-yellow-300">AI and data science</h3>
-                    <ul class="space-y-2">
+                    <h3 class="subtitle mb-4">AI and data science</h3>
+                    <ul>
                         <li>AI agents and vector retrieval in production</li>
                         <li>Machine learning and computer vision</li>
                         <li>Predictive and generative models</li>
@@ -163,17 +85,14 @@
         </div>
     </div>
 
-    <!-- Contact Section -->
-    <div class="container mx-auto px-6 py-16">
-        <h2 class="text-3xl font-bold text-center mb-8">Get In Touch</h2>
-
-        <div class="flex justify-center">
-            <a href="https://www.linkedin.com/in/prashand-ramesar/" target="_blank" rel="noopener" class="bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-300 mx-2">
-                LinkedIn
-            </a>
-            <a href="https://github.com/prashandramesar" target="_blank" rel="noopener" class="bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 transition duration-300 mx-2">
-                GitHub
-            </a>
+    <div class="section">
+        <div class="wrap">
+            <h2 class="title mb-6">Get In Touch</h2>
+            <div class="flex flex-wrap gap-4">
+                <a href="https://www.linkedin.com/in/prashand-ramesar/" target="_blank" rel="noopener" class="btn">LinkedIn</a>
+                <a href="https://github.com/prashandramesar" target="_blank" rel="noopener" class="btn">GitHub</a>
+            </div>
         </div>
     </div>
+</main>
 {% endblock %}

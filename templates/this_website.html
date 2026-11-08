@@ -3,50 +3,32 @@
 {% block title %}This Website | Prashand Ramesar{% endblock %}
 
 {% block content %}
-    <div class="container mx-auto px-6 py-12">
-        <!-- Project Header -->
-        <h1 class="text-3xl font-bold mb-4">This Website</h1>
+<main class="page wrap wrap-narrow">
+    <h1 class="display mb-6">This Website</h1>
 
-        <!-- GitHub Link -->
-        <p class="mb-8">
-            <a href="https://github.com/prashandramesar/personal-website" target="_blank" class="text-blue-600 hover:underline">
-                View on GitHub
-            </a>
-            {% if demo_link %}
-            |
-            <a href="{{ demo_link }}" class="text-blue-600 hover:underline">
-                Try Demo
-            </a>
-            {% endif %}
-        </p>
-
-        <!-- Project Overview -->
-        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-            <h2 class="text-2xl font-bold mb-4">Project Overview</h2>
-            <p class="text-gray-700 mb-4">
-                I build this site as a hobby project, to stay hands-on with AI-assisted development. It's one FastAPI service that serves these pages and also runs the dog breed classifier.
-            </p>
-            <p class="text-gray-700 mb-4">
-                I use Claude as a development partner and stay responsible for the direction and the result. In one review round, that meant finding that visitor uploads were being saved in a public folder, fixing it, removing unused dependencies, and adding automated tests and CI.
-            </p>
-            <div class="mt-6">
-                <h3 class="text-lg font-semibold mb-2">Technical Stack</h3>
-                <div class="flex flex-wrap gap-2">
-                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">Python</span>
-                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">TensorFlow Lite</span>
-                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">Flask</span>
-                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">FastAPI</span>
-                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">CORS Middleware</span>
-                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">RESTful API</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Back to Projects Link -->
-        <div class="mt-8 text-center">
-            <a href="/projects" class="text-blue-600 hover:underline">
-                ← Back to All Projects
-            </a>
-        </div>
+    <div class="flex flex-wrap gap-4 mb-10">
+        <a href="https://github.com/prashandramesar/personal-website" target="_blank" rel="noopener" class="btn">View on GitHub</a>
+        {% if demo_link %}<a href="{{ demo_link }}" class="btn">Try Demo</a>{% endif %}
     </div>
+
+    <h2 class="title mb-4">Project Overview</h2>
+    <p class="mb-4">
+        I build this site as a hobby project, to stay hands-on with AI-assisted development. It's one FastAPI service that serves these pages and also runs the dog breed classifier.
+    </p>
+    <p class="mb-8">
+        I use Claude as a development partner and stay responsible for the direction and the result. In one review round, that meant finding that visitor uploads were being saved in a public folder, fixing it, removing unused dependencies, and adding automated tests and CI.
+    </p>
+
+    <h3 class="subtitle mb-3">Technical Stack</h3>
+    <div class="flex flex-wrap gap-2 mb-10">
+        <span class="tag">Python</span>
+        <span class="tag">TensorFlow Lite</span>
+        <span class="tag">Flask</span>
+        <span class="tag">FastAPI</span>
+        <span class="tag">CORS Middleware</span>
+        <span class="tag">RESTful API</span>
+    </div>
+
+    <a href="/projects" class="link">← Back to All Projects</a>
+</main>
 {% endblock %}

@@ -47,7 +47,11 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 
 ## Frontend
 - Templates in `templates/`, and each page extends `base.html`. Static files in `static/`.
-- Styling uses Tailwind 2.2.19 utility classes, served from a trimmed `static/css/site.css`. After adding a new class to a template, run `python scripts/build_css.py` and commit the result, or the class does nothing. A test fails if a class is missing. Match the existing look (white cards, `rounded-lg shadow-md p-8`, gray text).
+- Design: calm and editorial, with lots of space, strong type, thin borders and one accent color. Light and dark themes follow the system setting, and a toggle overrides it.
+- Colors live only as tokens in `static/css/theme.css`, with components like `.btn`, `.input` and `.link`. Templates and scripts must not use Tailwind color, shadow or gradient classes, because those break one of the themes. Tests check this, and that text in both themes meets WCAG AA contrast.
+- Tailwind 2.2.19 utilities are only for layout and spacing. `static/css/site.css` is built from those plus `theme.css`. After adding a class or changing `theme.css`, run `python scripts/build_css.py` and commit the result. Tests fail if a class is missing or the theme is out of date.
+- Shared behaviour is in `static/js/site.js`: the theme toggle, mobile menu, instant stars and `data-busy` forms.
+- Photos in lists of work: add a file to `static/img/work/`, then pass `image` and `image_alt` to `work.row` in `templates/work.html`. Rows without a photo still line up.
 - New pages go in the `PAGES` table in `app.py`, which also feeds the sitemap.
 - Screenshots on `/recipe_tool`: add an image to `static/img/recipe_tool/`. The filename sets the order and caption, so `01-review-page.png` becomes "Review page". A test limits each to 500 KB. This repo is public. Prashand chose to allow titles, links and a few ingredient lines from imported recipes in these screenshots, but never written steps, full recipes, keys or private data.
 

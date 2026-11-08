@@ -1,43 +1,26 @@
-<!-- templates/navbar.html -->
-<nav class="bg-white shadow-md">
-    <div class="container mx-auto px-6 py-3">
-        <div class="flex justify-between items-center">
-            <a href="/" class="text-2xl font-bold text-blue-600">Prashand Ramesar</a>
-
-            <div class="hidden md:flex items-center space-x-8">
-                <a href="/" class="text-gray-800 hover:text-blue-600 transition duration-300">Home</a>
-                <a href="/kaai" class="text-gray-800 hover:text-blue-600 transition duration-300">KAAI</a>
-                <a href="/projects" class="text-gray-800 hover:text-blue-600 transition duration-300">Work</a>
-                <a href="/dog_classifier" class="text-gray-800 hover:text-blue-600 transition duration-300">Dog Classifier</a>
-                <a href="/about" class="text-gray-800 hover:text-blue-600 transition duration-300">About</a>
+{% import 'icons.html' as icons %}
+{% set nav_links = [("/kaai", "KAAI"), ("/projects", "Work"), ("/dog_classifier", "Dog Classifier"), ("/about", "About")] %}
+<nav class="site-nav" aria-label="Main">
+    <div class="wrap">
+        <div class="site-nav-row">
+            <a href="/" class="site-name">Prashand Ramesar</a>
+            <div class="site-links">
+                {% for href, label in nav_links %}
+                <a href="{{ href }}"{% if canonical_url == site_url ~ href %} aria-current="page"{% endif %}>{{ label }}</a>
+                {% endfor %}
             </div>
-
-            <!-- Mobile menu button -->
-            <div class="md:hidden">
-                <button id="menu-toggle" class="focus:outline-none" aria-label="Open menu">
-                    <svg class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                </button>
+            <div class="site-actions">
+                <button id="theme-toggle" type="button" class="icon-btn" aria-label="Switch theme">{{ icons.moon() }}{{ icons.sun() }}</button>
+                <button id="menu-toggle" type="button" class="icon-btn" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">{{ icons.menu() }}</button>
             </div>
         </div>
-
-        <!-- Mobile menu -->
-        <div id="mobile-menu" class="md:hidden hidden">
-            <div class="flex flex-col mt-4 space-y-4">
-                <a href="/" class="text-gray-800 hover:text-blue-600 transition duration-300">Home</a>
-                <a href="/kaai" class="text-gray-800 hover:text-blue-600 transition duration-300">KAAI</a>
-                <a href="/projects" class="text-gray-800 hover:text-blue-600 transition duration-300">Work</a>
-                <a href="/dog_classifier" class="text-gray-800 hover:text-blue-600 transition duration-300">Dog Classifier</a>
-                <a href="/about" class="text-gray-800 hover:text-blue-600 transition duration-300">About</a>
+        <div id="mobile-menu" data-open="false">
+            <div>
+                <a href="/">Home</a>
+                {% for href, label in nav_links %}
+                <a href="{{ href }}"{% if canonical_url == site_url ~ href %} aria-current="page"{% endif %}>{{ label }}</a>
+                {% endfor %}
             </div>
         </div>
     </div>
 </nav>
-
-<script>
-    // Simple toggle for mobile menu
-    document.getElementById('menu-toggle').addEventListener('click', function() {
-        document.getElementById('mobile-menu').classList.toggle('hidden');
-    });
-</script>

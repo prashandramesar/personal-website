@@ -1,0 +1,30 @@
+{% import 'icons.html' as icons %}
+{#
+    One row in a list of work. To add a photo, put the file in static/img/work/
+    and pass its name, along with text describing it:
+
+        work.row("KAAI", "/kaai", "AI agents...", image="kaai.jpg", image_alt="...")
+
+    Rows without a photo still line up, so photos can be added one at a time.
+#}
+{% macro row(title, href, text, image=None, image_alt="", tags=[], github=None, login=None) %}
+<div class="work-row{% if image %} work-row-with-image{% endif %}">
+    {% if image %}<img src="/static/img/work/{{ image }}" alt="{{ image_alt }}" loading="lazy" class="work-image">{% endif %}
+    <div class="work-main">
+        <a href="{{ href }}" class="work-link">
+            <span class="work-body">
+                <span class="work-title">{{ title }}</span>
+                <span class="work-text">{{ text }}</span>
+            </span>
+            {{ icons.arrow() }}
+        </a>
+        {% if tags or github or login %}
+        <div class="work-extras">
+            {% for tag in tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+            {% if github %}<a href="{{ github }}" target="_blank" rel="noopener" class="link-quiet work-action">GitHub</a>{% endif %}
+            {% if login %}<a href="{{ login }}" rel="nofollow" class="link-quiet work-action">Log in</a>{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
