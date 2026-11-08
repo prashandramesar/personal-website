@@ -8,6 +8,8 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Model: MobileNetV2 as TensorFlow Lite (`dog_breed_model_quantized.tflite`) with `label_map.json`, run with the `ai-edge-litert` interpreter and loaded in the FastAPI lifespan handler. Training code is in the `dog-breed-model` repo.
 - Model input is 224x224 RGB `float32` scaled to [0, 1], which matches training. Output is 120 classes.
 - Uploads are processed in memory. Never write them to disk or under `static/`.
+- Recipe conversion: `recipes/convert.py` does all metric and Celsius arithmetic, and a language model must never calculate a quantity. Not connected to any route yet.
+- `recipes/densities.json` holds cup weights from USDA FoodData Central, with the `fdc_id` and portion for each. Only add values with a source. If an ingredient isn't listed, show ml and flag it, and never guess grams.
 
 ## Endpoints
 - `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/this_website`: HTML pages
