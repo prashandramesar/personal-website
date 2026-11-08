@@ -4,123 +4,100 @@
 {% block description %}How I helped take KAAI, AI agents that support human call center agents during live calls, into production within a few months.{% endblock %}
 
 {% block content %}
-    <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-        <div class="container mx-auto px-6 py-16">
-            <p class="text-yellow-300 font-bold mb-2">Case study</p>
-            <h1 class="text-4xl md:text-5xl font-bold mb-4">KAAI</h1>
-            <p class="text-xl max-w-3xl">
-                AI agents that support human call center agents during live calls, taken from business need to a full product in production within a few months.
-            </p>
+<main class="page wrap wrap-narrow">
+    <p class="eyebrow mb-4">Case study</p>
+    <h1 class="display mb-6">KAAI</h1>
+    <p class="lead mb-10">
+        AI agents that support human call center agents during live calls, taken from business need to a full product in production within a few months.
+    </p>
+
+    <div class="facts mb-14">
+        <div>
+            <p class="label mb-1">My role</p>
+            <p class="fact">Process lead</p>
+        </div>
+        <div>
+            <p class="label mb-1">Delivery</p>
+            <p class="fact">Full product in production within a few months</p>
+        </div>
+        <div>
+            <p class="label mb-1">Outcome</p>
+            <p class="fact">Contributed to lower operational cost, according to senior management</p>
         </div>
     </div>
 
-    <div class="container mx-auto px-6 py-12">
-        <div class="max-w-4xl mx-auto">
-            <!-- At a glance -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <p class="text-gray-600 text-sm font-bold mb-2">My role</p>
-                    <p class="text-lg font-bold">Process lead</p>
-                </div>
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <p class="text-gray-600 text-sm font-bold mb-2">Delivery</p>
-                    <p class="text-lg font-bold">Full product in production within a few months</p>
-                </div>
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <p class="text-gray-600 text-sm font-bold mb-2">Outcome</p>
-                    <p class="text-lg font-bold">Contributed to lower operational cost, according to senior management</p>
-                </div>
-            </div>
+    <h2 class="title mb-4">The product</h2>
+    <p class="mb-8">
+        KAAI supports human call center agents during live calls, in two ways.
+    </p>
 
-            <!-- Product -->
-            <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-4">The product</h2>
-                <p class="text-gray-700 mb-6">
-                    KAAI supports human call center agents during live calls, in two ways.
-                </p>
+    <h3 class="subtitle mb-2">Answering the human agent's questions</h3>
+    <p class="mb-4">
+        The human agent types a prompt, and KAAI finds the matching information and delivers it back.
+    </p>
+    <ol class="process mb-10">
+        <li>
+            <p class="font-bold mb-1">1. Ask</p>
+            <p class="text-muted">The human agent asks a question in a prompt.</p>
+        </li>
+        <li>
+            <p class="font-bold mb-1">2. Retrieve</p>
+            <p class="text-muted">The prompt is used to match and retrieve chunks from a vector database.</p>
+        </li>
+        <li>
+            <p class="font-bold mb-1">3. Answer</p>
+            <p class="text-muted">The retrieved information is delivered back to answer the question.</p>
+        </li>
+    </ol>
 
-                <h3 class="text-xl font-bold mb-2">Answering the human agent's questions</h3>
-                <p class="text-gray-700 mb-4">
-                    The human agent types a prompt, and KAAI finds the matching information and delivers it back.
-                </p>
-                <ol class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <li class="bg-gray-100 rounded-lg p-4">
-                        <p class="font-bold text-blue-600 mb-1">1. Ask</p>
-                        <p class="text-gray-700 text-sm">The human agent asks a question in a prompt.</p>
-                    </li>
-                    <li class="bg-gray-100 rounded-lg p-4">
-                        <p class="font-bold text-blue-600 mb-1">2. Retrieve</p>
-                        <p class="text-gray-700 text-sm">The prompt is used to match and retrieve chunks from a vector database.</p>
-                    </li>
-                    <li class="bg-gray-100 rounded-lg p-4">
-                        <p class="font-bold text-blue-600 mb-1">3. Answer</p>
-                        <p class="text-gray-700 text-sm">The retrieved information is delivered back to answer the question.</p>
-                    </li>
-                </ol>
+    <h3 class="subtitle mb-2">Next best action (NBA)</h3>
+    <p class="mb-4">
+        An active listening agent follows the conversation and suggests prompts proactively, before the human agent has a chance to type them.
+    </p>
+    <ol class="process mb-14">
+        <li>
+            <p class="font-bold mb-1">1. Listen</p>
+            <p class="text-muted">The agent listens to the live conversation.</p>
+        </li>
+        <li>
+            <p class="font-bold mb-1">2. Suggest</p>
+            <p class="text-muted">It suggests the next prompt to the human agent.</p>
+        </li>
+    </ol>
 
-                <h3 class="text-xl font-bold mb-2">Next best action (NBA)</h3>
-                <p class="text-gray-700 mb-4">
-                    An active listening agent follows the conversation and suggests prompts proactively, before the human agent has a chance to type them.
-                </p>
-                <ol class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <li class="bg-gray-100 rounded-lg p-4">
-                        <p class="font-bold text-blue-600 mb-1">1. Listen</p>
-                        <p class="text-gray-700 text-sm">The agent listens to the live conversation.</p>
-                    </li>
-                    <li class="bg-gray-100 rounded-lg p-4">
-                        <p class="font-bold text-blue-600 mb-1">2. Suggest</p>
-                        <p class="text-gray-700 text-sm">It suggests the next prompt to the human agent.</p>
-                    </li>
-                </ol>
-            </div>
+    <h2 class="title mb-4">What I was accountable for</h2>
+    <p class="mb-4">
+        The work spanned many disciplines. My job was to keep them moving toward the same goal and keep our eye on the ball.
+    </p>
+    <ul class="list-disc pl-6 space-y-2 mb-14">
+        <li><strong>Stakeholder management</strong>, including handling ad hoc requests</li>
+        <li><strong>Scoping business requirements</strong> and translating them into technical requirements</li>
+        <li><strong>Handling priorities</strong> across the work</li>
+        <li><strong>Escalating relevant topics</strong> to senior management</li>
+        <li><strong>Keeping up team motivation and happiness</strong></li>
+    </ul>
 
-            <!-- Role -->
-            <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-4">What I was accountable for</h2>
-                <p class="text-gray-700 mb-4">
-                    The work spanned many disciplines. My job was to keep them moving toward the same goal and keep our eye on the ball.
-                </p>
-                <ul class="list-disc pl-6 space-y-2 text-gray-700">
-                    <li><strong>Stakeholder management</strong>, including handling ad hoc requests</li>
-                    <li><strong>Scoping business requirements</strong> and translating them into technical requirements</li>
-                    <li><strong>Handling priorities</strong> across the work</li>
-                    <li><strong>Escalating relevant topics</strong> to senior management</li>
-                    <li><strong>Keeping up team motivation and happiness</strong></li>
-                </ul>
-            </div>
+    <h2 class="title mb-6">Two decisions that shaped the project</h2>
+    <h3 class="subtitle mb-2">Improving how we worked</h3>
+    <p class="mb-6">
+        I advocated for retrospectives. My colleagues and our international consulting party came to the office from different countries to hold them, and together we established a better way of working. Optimizing the process was part of delivering the product.
+    </p>
+    <h3 class="subtitle mb-2">Delaying NBA when it fell short</h3>
+    <p class="mb-14">
+        NBA did not perform as well as we wanted. My colleagues, our international consulting party and I decided unanimously to delay its launch and go back to the drawing board. We're now updating it based on the added value in the user experience, to drive adoption.
+    </p>
 
-            <!-- Decisions -->
-            <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-6">Two decisions that shaped the project</h2>
-                <h3 class="text-xl font-bold mb-2">Improving how we worked</h3>
-                <p class="text-gray-700 mb-6">
-                    I advocated for retrospectives. My colleagues and our international consulting party came to the office from different countries to hold them, and together we established a better way of working. Optimizing the process was part of delivering the product.
-                </p>
-                <h3 class="text-xl font-bold mb-2">Delaying NBA when it fell short</h3>
-                <p class="text-gray-700">
-                    NBA did not perform as well as we wanted. My colleagues, our international consulting party and I decided unanimously to delay its launch and go back to the drawing board. We're now updating it based on the added value in the user experience, to drive adoption.
-                </p>
-            </div>
+    <h2 class="title mb-4">The result</h2>
+    <p class="mb-4">
+        We built and deployed a full product to production within just a few months, working across many disciplines.
+    </p>
+    <p class="mb-4">
+        Senior management has shared that the project successfully contributed to lower operational cost for the business.
+    </p>
+    <p class="mb-10">
+        KAAI is still an ongoing project.
+    </p>
 
-            <!-- Result -->
-            <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-                <h2 class="text-2xl font-bold mb-4">The result</h2>
-                <p class="text-gray-700 mb-4">
-                    We built and deployed a full product to production within just a few months, working across many disciplines.
-                </p>
-                <p class="text-gray-700 mb-4">
-                    Senior management has shared that the project successfully contributed to lower operational cost for the business.
-                </p>
-                <p class="text-gray-700">
-                    KAAI is still an ongoing project.
-                </p>
-            </div>
-
-            <div class="text-center">
-                <a href="https://www.linkedin.com/in/prashand-ramesar/" target="_blank" rel="noopener" class="inline-block bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-300">
-                    Talk to me on LinkedIn
-                </a>
-            </div>
-        </div>
-    </div>
+    <a href="https://www.linkedin.com/in/prashand-ramesar/" target="_blank" rel="noopener" class="btn btn-primary">Talk to me on LinkedIn</a>
+</main>
 {% endblock %}

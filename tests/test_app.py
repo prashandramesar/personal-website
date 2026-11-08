@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from flask import render_template_string
 from PIL import Image
 
 import app as portfolio
@@ -273,7 +274,7 @@ def test_template_classes_are_in_the_compiled_stylesheet() -> None:
         re.sub(r"\\(.)", r"\1", name)
         for name in re.findall(r"\.((?:\\.|[\w-])+)", stylesheet)
     }
-    not_tailwind = {"dropzone", "spinner", "project-card", "prose"}
+    not_tailwind: set[str] = set()
 
     used: set[str] = set()
     for template in (base_dir / "templates").glob("*.html"):
@@ -307,3 +308,119 @@ def test_large_jpeg_within_limit_is_accepted(client: TestClient) -> None:
 def test_png_over_its_pixel_limit_returns_413(client: TestClient) -> None:
     contents = encode(Image.new("L", (5100, 5000)))
     assert post(client, "/predict", contents, "big.png").status_code == 413
+
+
+COLOR_CLASS = re.compile(
+    r"(?<![\w-])(?:hover:|focus:)?(?:bg|text|border|from|via|to|ring|divide|placeholder)-"
+    r"(?:white|black|gray|red|yellow|green|blue|indigo|purple|pink)(?:-\d+)?(?![\w-])"
+)
+SHADOW_OR_GRADIENT = re.compile(
+    r"(?<![\w-])(?:bg-gradient-to-\w+|shadow(?:-\w+)?)(?![\w-])"
+)
+
+
+def site_markup_files() -> list[Path]:
+    base_dir = Path(portfolio.BASE_DIR)
+    return [
+        *(base_dir / "templates").glob("*.html"),
+        *(base_dir / "static/js").glob("*.js"),
+    ]
+
+
+@pytest.mark.parametrize("path", site_markup_files(), ids=lambda path: path.name)
+def test_templates_use_theme_colors_only(path: Path) -> None:
+    """A hard-coded color looks wrong in one of the two themes."""
+    text = path.read_text("utf-8")
+    assert COLOR_CLASS.findall(text) == []
+    assert SHADOW_OR_GRADIENT.findall(text) == []
+
+
+THEME_CSS = (Path(portfolio.BASE_DIR) / "static" / "css" / "theme.css").read_text(
+    "utf-8"
+)
+
+
+def theme_tokens(block_start: str) -> dict[str, str]:
+    start = THEME_CSS.index(block_start)
+    block = THEME_CSS[THEME_CSS.index("{", start) :]
+    block = block[: block.index("}")]
+    return dict(re.findall(r"--([\w-]+):\s*(#[0-9a-f]{6})", block))
+
+
+LIGHT = theme_tokens(":root {")
+DARK = theme_tokens(':root[data-theme="dark"]')
+SYSTEM_DARK = theme_tokens(':root:not([data-theme="light"])')
+TEXT_PAIRS = [
+    ("fg", "bg"),
+    ("fg", "surface"),
+    ("fg", "surface-raised"),
+    ("muted", "bg"),
+    ("muted", "surface"),
+    ("muted", "surface-raised"),
+    ("accent", "bg"),
+    ("accent", "surface"),
+    ("accent-hover", "bg"),
+    ("on-accent", "accent"),
+    ("on-accent", "accent-hover"),
+    ("danger", "bg"),
+    ("danger", "surface"),
+    ("star", "bg"),
+    ("star", "surface-raised"),
+    ("on-success", "success"),
+]
+
+
+def luminance(color: str) -> float:
+    channels = [int(color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+    linear = [
+        c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels
+    ]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def contrast(first: str, second: str) -> float:
+    lighter, darker = sorted((luminance(first), luminance(second)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+@pytest.mark.parametrize("theme", [LIGHT, DARK], ids=["light", "dark"])
+@pytest.mark.parametrize(("text", "background"), TEXT_PAIRS)
+def test_theme_text_is_readable(
+    theme: dict[str, str], text: str, background: str
+) -> None:
+    assert contrast(theme[text], theme[background]) >= 4.5
+
+
+def test_both_ways_of_getting_dark_mode_match() -> None:
+    assert DARK == SYSTEM_DARK
+    assert set(DARK) == set(LIGHT)
+
+
+def test_every_page_loads_the_theme_script_before_the_stylesheet(
+    client: TestClient,
+) -> None:
+    html = client.get("/").text
+    assert html.index("localStorage.getItem('theme')") < html.index("site.css")
+    assert 'id="theme-toggle"' in html
+    assert 'name="theme-color"' in html
+
+
+def test_compiled_stylesheet_includes_the_current_theme() -> None:
+    """Fails if theme.css changed without rerunning scripts/build_css.py."""
+    compiled = (Path(portfolio.BASE_DIR) / "static" / "css" / "site.css").read_text(
+        "utf-8"
+    )
+    assert THEME_CSS.replace("\r\n", "\n") in compiled.replace("\r\n", "\n")
+
+
+def test_work_rows_show_a_photo_only_when_given_one() -> None:
+    template = (
+        "{% import 'work.html' as work %}"
+        "{{ work.row('Plain', '/a', 'Text') }}"
+        "{{ work.row('Photo', '/b', 'Text', image='b.jpg', image_alt='A dog') }}"
+    )
+    with portfolio.flask_app.app_context():
+        html = render_template_string(template)
+    assert html.count("<img") == 1
+    assert 'src="/static/img/work/b.jpg" alt="A dog"' in html
+    assert html.count("work-row-with-image") == 1

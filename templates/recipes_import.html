@@ -3,49 +3,34 @@
 {% block description %}A private recipe tool.{% endblock %}
 {% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 {% block content %}
-<main class="container mx-auto px-2 md:px-6 py-4 md:py-12 max-w-3xl">
-    <p class="mb-4"><a href="/recipes" class="text-blue-600 hover:text-blue-700">Back to recipes</a></p>
-    {% if error %}<p class="text-red-600 mb-4" role="alert">{{ error }}</p>{% endif %}
+<main class="page wrap wrap-narrow">
+    <p class="mb-4"><a href="/recipes" class="link">Back to recipes</a></p>
+    {% if error %}<p class="notice mb-4" role="alert">{{ error }}</p>{% endif %}
 
-    <div class="bg-white rounded-lg shadow-md p-4 md:p-8 mb-6">
-        <h1 class="text-2xl font-bold text-gray-800 mb-4">Import from a link</h1>
-        <form data-import-form method="post" action="/recipes/import">
-            <label for="url" class="block text-gray-700 mb-2">Recipe link</label>
-            <input id="url" name="url" type="text" inputmode="url" value="{{ url }}" required {% if not suggest_paste %}autofocus{% endif %}
-                placeholder="https://" class="w-full border border-gray-300 rounded-lg p-2 mb-4">
-            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Import link</button>
-        </form>
-    </div>
+    <h1 class="title mb-4">Import from a link</h1>
+    <form data-busy="Importing, this can take a minute..." method="post" action="/recipes/import" class="mb-12">
+        <label for="url" class="field-label">Recipe link</label>
+        <input id="url" name="url" type="text" inputmode="url" value="{{ url }}" required {% if not suggest_paste %}autofocus{% endif %}
+            placeholder="https://" class="input mb-4">
+        <button type="submit" class="btn btn-primary">Import link</button>
+    </form>
 
-    <div class="bg-white rounded-lg shadow-md p-4 md:p-8">
-        <h2 class="text-2xl font-bold text-gray-800 mb-2">Paste the text</h2>
-        <p class="text-gray-600 mb-4">For Instagram, TikTok, YouTube and sites that block the tool. Copy the caption, description or recipe, and paste it here.</p>
-        <form data-import-form method="post" action="/recipes/paste">
-            <label for="text" class="block text-gray-700 mb-2">Recipe text</label>
-            <textarea id="text" name="text" rows="10" required maxlength="{{ max_paste_chars }}" {% if suggest_paste %}autofocus{% endif %}
-                class="w-full border border-gray-300 rounded-lg p-2 mb-4">{{ paste_text }}</textarea>
-            <label for="source_link" class="block text-gray-700 mb-2">Link to the original (optional)</label>
-            <input id="source_link" name="source_link" type="text" inputmode="url" value="{{ paste_link }}"
-                placeholder="https://" class="w-full border border-gray-300 rounded-lg p-2 mb-4">
-            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Import text</button>
-        </form>
-    </div>
+    <h2 class="title mb-2">Paste the text</h2>
+    <p class="text-muted mb-4">For Instagram, TikTok, YouTube and sites that block the tool. Copy the caption, description or recipe, and paste it here.</p>
+    <form data-busy="Importing, this can take a minute..." method="post" action="/recipes/paste">
+        <label for="text" class="field-label">Recipe text</label>
+        <textarea id="text" name="text" rows="10" required maxlength="{{ max_paste_chars }}" {% if suggest_paste %}autofocus{% endif %}
+            class="input mb-4">{{ paste_text }}</textarea>
+        <label for="source_link" class="field-label">Link to the original (optional)</label>
+        <input id="source_link" name="source_link" type="text" inputmode="url" value="{{ paste_link }}"
+            placeholder="https://" class="input mb-4">
+        <button type="submit" class="btn btn-primary">Import text</button>
+    </form>
 
-    <p class="text-gray-600 mt-6">
+    <p class="text-muted mt-10">
         Imports today: {{ imports_today }} of {{ daily_limit }}.
         This month: {{ usage.imports }} imports, {{ usage.input_tokens }} input and {{ usage.output_tokens }} output tokens.
         Model: {{ model }}.
     </p>
 </main>
-{% endblock %}
-{% block scripts %}
-<script>
-    document.querySelectorAll("[data-import-form]").forEach(function(form) {
-        form.addEventListener('submit', function() {
-            var button = form.querySelector('button');
-            button.disabled = true;
-            button.textContent = 'Importing, this can take a minute...';
-        });
-    });
-</script>
 {% endblock %}

@@ -4,90 +4,86 @@
 {% block description %}A hobby project: a private tool that turns a recipe link or caption into a clean, metric recipe, with Claude reading the text and plain code doing the arithmetic.{% endblock %}
 
 {% block content %}
-    <div class="container mx-auto px-6 py-12 max-w-4xl">
-        <h1 class="text-3xl font-bold mb-4">Recipe Tool</h1>
-        <p class="text-gray-700 mb-6">
-            A hobby project: give it a recipe link or a pasted caption, and it returns the ingredients and steps, always in metric and Celsius. I can then check the result, save it and search my collection. The tool itself is private, so this page shows what it does using one of my own recipes.
-        </p>
-        <a href="/recipes/login" rel="nofollow" class="inline-block bg-blue-600 text-white font-medium px-4 py-2 rounded-lg hover:bg-blue-700 mb-8">
-            Log in to the tool →
-        </a>
+<main class="page wrap wrap-narrow">
+    <h1 class="display mb-6">Recipe Tool</h1>
+    <p class="lead mb-6">
+        A hobby project: give it a recipe link or a pasted caption, and it returns the ingredients and steps, always in metric and Celsius. I can then check the result, save it and search my collection. The tool itself is private, so this page shows what it does using one of my own recipes.
+    </p>
+    <a href="/recipes/login" rel="nofollow" class="btn btn-primary mb-14">
+        Log in to the tool →
+    </a>
 
-        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-            <h2 class="text-2xl font-bold mb-2">Example: my masala chai</h2>
-            <p class="text-gray-600 mb-6">The new amounts come from the tool's conversion code. Cups are read as US cups, because the recipe doesn't say otherwise.</p>
+    <h2 class="title mb-2">Example: my masala chai</h2>
+    <p class="text-muted mb-8">The new amounts come from the tool's conversion code. Cups are read as US cups, because the recipe doesn't say otherwise.</p>
 
-            <h3 class="text-xl font-bold mb-2">Converted to metric</h3>
-            <ul class="mb-8">
-                {% for before, after, ingredient in [
-                    ("1½ cups", "355 ml", "water"),
-                    ("1 cup", "235 ml", "full-fat or whole milk (adjust for creaminess)"),
-                    ("2 to 3 teaspoons", "10-15 ml", "loose-leaf black tea"),
-                    ("1-inch", "2.5 cm", "piece of fresh ginger root, crushed or grated"),
-                ] %}
-                <li class="border-b border-gray-200 py-3">
-                    <span class="text-gray-500">{{ before }}</span>
-                    <span class="sr-only">becomes</span>
-                    <span class="text-gray-500 mx-1" aria-hidden="true">→</span>
-                    <span class="font-bold text-blue-600">{{ after }}</span>
-                    <span class="block text-gray-700">{{ ingredient }}</span>
-                </li>
-                {% endfor %}
-            </ul>
+    <h3 class="subtitle mb-2">Converted to metric</h3>
+    <ul class="ingredient-list mb-10">
+        {% for before, after, ingredient in [
+            ("1½ cups", "355 ml", "water"),
+            ("1 cup", "235 ml", "full-fat or whole milk (adjust for creaminess)"),
+            ("2 to 3 teaspoons", "10-15 ml", "loose-leaf black tea"),
+            ("1-inch", "2.5 cm", "piece of fresh ginger root, crushed or grated"),
+        ] %}
+        <li class="ingredient ingredient-converted">
+            <span>
+                <span class="text-muted">{{ before }}</span>
+                <span class="sr-only">becomes</span>
+                <span class="text-muted mx-1" aria-hidden="true">→</span>
+                <span class="font-bold text-accent">{{ after }}</span>
+            </span>
+            <span>{{ ingredient }}</span>
+        </li>
+        {% endfor %}
+    </ul>
 
-            <h3 class="text-xl font-bold mb-2">Left as written</h3>
-            <p class="text-gray-600 mb-3">These have no units to convert.</p>
-            <ul class="text-gray-700 mb-8">
-                <li class="py-1">3 green cardamom pods, lightly crushed</li>
-                <li class="py-1">1 small cinnamon stick</li>
-                <li class="py-1">2 cloves</li>
-                <li class="py-1">3 to 4 black peppercorns, crushed</li>
-                <li class="py-1">1 whole star anise</li>
-                <li class="py-1">A pinch of fennel seeds</li>
-                <li class="py-1">Sugar, to taste</li>
-            </ul>
+    <h3 class="subtitle mb-2">Left as written</h3>
+    <p class="text-muted mb-3">These have no units to convert.</p>
+    <ul class="mb-10">
+        <li class="py-1">3 green cardamom pods, lightly crushed</li>
+        <li class="py-1">1 small cinnamon stick</li>
+        <li class="py-1">2 cloves</li>
+        <li class="py-1">3 to 4 black peppercorns, crushed</li>
+        <li class="py-1">1 whole star anise</li>
+        <li class="py-1">A pinch of fennel seeds</li>
+        <li class="py-1">Sugar, to taste</li>
+    </ul>
 
-            <h3 class="text-xl font-bold mb-4">Steps</h3>
-            <ol class="text-gray-700">
-                <li class="mb-2">1. Simmer the whole spices and ginger in boiling water for 3-4 minutes.</li>
-                <li class="mb-2">2. Next, add the loose black tea and boil for another minute.</li>
-                <li class="mb-2">3. Then add your whole milk and bring it back to the boil. Make sure to kill the heat right before the milk boils over. Repeat this step a few times.</li>
-                <li class="mb-2">4. Finally, strain the masala chai into two cups and add sugar to taste. Enjoy!</li>
-            </ol>
-        </div>
+    <h3 class="subtitle mb-4">Steps</h3>
+    <ol class="step-list mb-14">
+        <li class="step"><span class="step-number">1</span><span>Simmer the whole spices and ginger in boiling water for 3-4 minutes.</span></li>
+        <li class="step"><span class="step-number">2</span><span>Next, add the loose black tea and boil for another minute.</span></li>
+        <li class="step"><span class="step-number">3</span><span>Then add your whole milk and bring it back to the boil. Make sure to kill the heat right before the milk boils over. Repeat this step a few times.</span></li>
+        <li class="step"><span class="step-number">4</span><span>Finally, strain the masala chai into two cups and add sugar to taste. Enjoy!</span></li>
+    </ol>
 
-        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-            <h2 class="text-2xl font-bold mb-4">How it works</h2>
-            <ol class="text-gray-700">
-                <li class="mb-2">1. <strong>Get the text.</strong> It fetches the link, or takes pasted text, and trims a page down to just the recipe.</li>
-                <li class="mb-2">2. <strong>Read it with Claude.</strong> One call turns messy text, in English or Dutch, into structured ingredients and steps.</li>
-                <li class="mb-2">3. <strong>Convert it in code.</strong> Plain Python does every calculation, with cup weights from USDA FoodData Central.</li>
-                <li class="mb-2">4. <strong>Check it.</strong> I see each conversion next to its original text, with notes on anything uncertain, and can edit it before saving.</li>
-            </ol>
-        </div>
+    <h2 class="title mb-4">How it works</h2>
+    <ol class="step-list mb-14">
+        <li class="step"><span class="step-number">1</span><span><strong>Get the text.</strong> It fetches the link, or takes pasted text, and trims a page down to just the recipe.</span></li>
+        <li class="step"><span class="step-number">2</span><span><strong>Read it with Claude.</strong> One call turns messy text, in English or Dutch, into structured ingredients and steps.</span></li>
+        <li class="step"><span class="step-number">3</span><span><strong>Convert it in code.</strong> Plain Python does every calculation, with cup weights from USDA FoodData Central.</span></li>
+        <li class="step"><span class="step-number">4</span><span><strong>Check it.</strong> I see each conversion next to its original text, with notes on anything uncertain, and can edit it before saving.</span></li>
+    </ol>
 
-        {% if recipe_screenshots %}
-        <div class="bg-white rounded-lg shadow-md p-8 mb-8">
-            <h2 class="text-2xl font-bold mb-4">Screenshots</h2>
-            {% for screenshot in recipe_screenshots %}
-            <figure class="mb-8">
-                <a href="{{ screenshot.url }}" target="_blank" rel="noopener">
-                    <img src="{{ screenshot.url }}" alt="{{ screenshot.caption }}" loading="lazy" class="w-full rounded-lg shadow-md">
-                </a>
-                <figcaption class="text-gray-600 mt-2">{{ screenshot.caption }}</figcaption>
-            </figure>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        <div class="bg-white rounded-lg shadow-md p-8">
-            <h2 class="text-2xl font-bold mb-4">Decisions I made</h2>
-            <ul class="text-gray-700">
-                <li class="mb-4"><strong>The model reads, and code calculates.</strong> A language model is good at messy text, but a recipe's arithmetic has to be right every time and easy to test. So the model never calculates a quantity.</li>
-                <li class="mb-4"><strong>Show doubt instead of guessing.</strong> A cup of flour and a cup of honey weigh very different amounts. If the tool doesn't have a sourced weight for an ingredient, it shows millilitres with a note and doesn't invent grams.</li>
-                <li class="mb-4"><strong>Respect the platforms' rules.</strong> Instagram, TikTok and YouTube restrict automated collection, and some websites block it. Instead of working around that, the tool asks me to paste the text. YouTube's API was an option, but its rules on storing and deriving data conflict with saving recipes, so I left it out.</li>
-                <li><strong>Keep it private.</strong> It sits behind a login, because a public tool that fetches any link invites abuse, and full recipes are other people's work. That's why the example above is my own recipe, and the screenshots only show parts of recipes I imported.</li>
-            </ul>
-        </div>
+    {% if recipe_screenshots %}
+    <h2 class="title mb-6">Screenshots</h2>
+    <div class="mb-14">
+        {% for screenshot in recipe_screenshots %}
+        <figure class="mb-8">
+            <a href="{{ screenshot.url }}" target="_blank" rel="noopener">
+                <img src="{{ screenshot.url }}" alt="{{ screenshot.caption }}" loading="lazy" class="shot">
+            </a>
+            <figcaption class="text-muted mt-2">{{ screenshot.caption }}</figcaption>
+        </figure>
+        {% endfor %}
     </div>
+    {% endif %}
+
+    <h2 class="title mb-6">Decisions I made</h2>
+    <ul class="decision-list">
+        <li><strong>The model reads, and code calculates.</strong> A language model is good at messy text, but a recipe's arithmetic has to be right every time and easy to test. So the model never calculates a quantity.</li>
+        <li><strong>Show doubt instead of guessing.</strong> A cup of flour and a cup of honey weigh very different amounts. If the tool doesn't have a sourced weight for an ingredient, it shows millilitres with a note and doesn't invent grams.</li>
+        <li><strong>Respect the platforms' rules.</strong> Instagram, TikTok and YouTube restrict automated collection, and some websites block it. Instead of working around that, the tool asks me to paste the text. YouTube's API was an option, but its rules on storing and deriving data conflict with saving recipes, so I left it out.</li>
+        <li><strong>Keep it private.</strong> It sits behind a login, because a public tool that fetches any link invites abuse, and full recipes are other people's work. That's why the example above is my own recipe, and the screenshots only show parts of recipes I imported.</li>
+    </ul>
+</main>
 {% endblock %}
