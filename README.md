@@ -27,6 +27,7 @@ Predictions call the model directly in the same process. Uploaded images are pro
 | `/projects` | GET | Work overview |
 | `/dog_classifier` | GET | Classifier demo page |
 | `/android_app` | GET | Android app project page |
+| `/recipe_tool` | GET | Recipe tool demo page |
 | `/this_website` | GET | Website project page |
 | `/about` | GET | About page |
 | `/api/dog` | GET | API root with welcome message |

@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 import app as portfolio
 from recipes import auth, backup, extract, routes
+from recipes.convert import convert_ingredient, convert_step
 from recipes.extract import (
     ExtractedIngredient,
     ExtractedRecipe,
@@ -1616,3 +1617,91 @@ def test_site_still_works_without_the_tool_configured(
     with TestClient(portfolio.app) as client:
         assert client.get("/").status_code == 200
         assert client.get("/health").status_code == 200
+
+
+# Each ingredient on the demo page: the text shown, then how it's converted.
+DEMO_INGREDIENTS: list[tuple[str, float, float | None, str | None, str, str]] = [
+    ("1½ cups water", 1.5, None, "cups", "water", "355 ml water"),
+    (
+        "1 cup full-fat or whole milk (adjust for creaminess)",
+        1,
+        None,
+        "cup",
+        "whole milk",
+        "235 ml full-fat or whole milk (adjust for creaminess)",
+    ),
+    (
+        "2 to 3 teaspoons loose-leaf black tea",
+        2,
+        3,
+        "teaspoons",
+        "loose-leaf black tea",
+        "10-15 ml loose-leaf black tea",
+    ),
+    (
+        "1-inch piece of fresh ginger root, crushed or grated",
+        1,
+        None,
+        "inch",
+        "fresh ginger root",
+        "2.5 cm piece of fresh ginger root, crushed or grated",
+    ),
+]
+DEMO_STEPS = [
+    "Simmer the whole spices and ginger in boiling water for 3-4 minutes.",
+    "Next, add the loose black tea and boil for another minute.",
+    "Then add your whole milk and bring it back to the boil. Make sure to kill the "
+    "heat right before the milk boils over. Repeat this step a few times.",
+    "Finally, strain the masala chai into two cups and add sugar to taste. Enjoy!",
+]
+
+
+@pytest.fixture
+def demo_page() -> str:
+    with TestClient(portfolio.app) as client:
+        return client.get("/recipe_tool").text
+
+
+@pytest.mark.parametrize(
+    ("original", "quantity", "quantity_max", "unit", "name", "shown"),
+    DEMO_INGREDIENTS,
+)
+def test_demo_shows_what_the_converter_really_produces(
+    demo_page: str,
+    original: str,
+    quantity: float,
+    quantity_max: float | None,
+    unit: str | None,
+    name: str,
+    shown: str,
+) -> None:
+    result = convert_ingredient(original, name, quantity, quantity_max, unit)
+    assert shown.startswith(result.amount)
+    assert f"<p>{original}</p>" in demo_page
+    assert f"<p>{shown}</p>" in demo_page
+
+
+@pytest.mark.parametrize("step", DEMO_STEPS)
+def test_demo_steps_are_what_the_converter_returns(demo_page: str, step: str) -> None:
+    assert convert_step(step).text == step
+    assert step in demo_page
+
+
+def test_demo_is_public_and_listed(demo_page: str) -> None:
+    with TestClient(portfolio.app) as client:
+        assert "/recipe_tool" in client.get("/projects").text
+        assert "/recipe_tool" in client.get("/sitemap.xml").text
+    assert "noindex" not in demo_page
+
+
+def test_demo_links_to_nothing_private_and_calls_no_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def must_not_run() -> None:
+        raise AssertionError("The public demo called the API")
+
+    monkeypatch.setattr(extract, "make_client", must_not_run)
+    with TestClient(portfolio.app) as client:
+        response = client.get("/recipe_tool")
+    assert response.status_code == 200
+    assert "/recipes" not in response.text

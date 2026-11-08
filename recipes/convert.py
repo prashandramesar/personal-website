@@ -100,6 +100,8 @@ UNIT_ALIASES = {
     "gallons": "gallon",
     "stick": "stick",
     "sticks": "stick",
+    "inch": "inch",
+    "inches": "inch",
 }
 # Non-metric units whose result depends on the country they came from.
 REGION_SENSITIVE_UNITS = {"cup", "fl oz", "pint", "quart", "gallon"}
@@ -180,6 +182,11 @@ _STEP_UNIT_IN_TEXT = re.compile(r"\b(?:" + _STEP_UNITS + r")(?![\w-])", re.I)
 # "Divide among 12 cups" means muffin cups or bowls, not a volume.
 _CONTAINER_CONTEXT = re.compile(r"\b(among|between|into|fills?)\s+$", re.I)
 _FOLLOWING_WORDS = re.compile(r"\s*(?:of\s+)?(?:the\s+)?([^.,;:()\n]*)")
+# An amount's ingredient ends here. In "strain into two cups and add sugar", the
+# sugar has nothing to do with the cups.
+_END_OF_INGREDIENT = re.compile(
+    r"\b(?:and|or|then|until|to|with|in|into|over|while|before|after|for)\b", re.I
+)
 
 _DEGREES = r"(?:\s*(?:°|º|degrees?|deg\.?))?"
 _F_SUFFIX = _DEGREES + r"\s*(?:Fahrenheit|F)\b"
@@ -340,6 +347,10 @@ def _rounded_ml(ml: float) -> float:
     return float(round(ml)) if ml < 50 else float(5 * round(ml / 5))
 
 
+def _rounded_cm(inches: float) -> str:
+    return _plain_number(round(inches * 2.54 * 2) / 2)
+
+
 def _format_metric(low: float, high: float | None, kind: Literal["g", "ml"]) -> str:
     """Format grams or millilitres, switching to kg or l from 1000 upwards."""
     rounder = _rounded_grams if kind == "g" else _rounded_ml
@@ -381,6 +392,11 @@ def _convert_quantity(
     if unit == "oz" and is_liquid:
         unit = "fl oz"
 
+    if unit == "inch":
+        span = _rounded_cm(low)
+        if high is not None:
+            span = f"{span}-{_rounded_cm(high)}"
+        return f"{span} cm", ()
     if unit == "stick":
         top = high * STICK_OF_BUTTER_GRAMS if high is not None else None
         return _format_metric(low * STICK_OF_BUTTER_GRAMS, top, "g"), ()
@@ -454,7 +470,8 @@ def convert_ingredient(
     elif unit_text == "t":
         known_unit = "tsp"
     else:
-        known_unit = UNIT_ALIASES.get(unit_text.lower().rstrip("."))
+        # "-inch" comes from wording like "a 1-inch piece".
+        known_unit = UNIT_ALIASES.get(unit_text.lower().strip("-."))
 
     # Only butter comes in standard sticks. Cinnamon and celery don't.
     if known_unit == "stick" and not _is_butter(canonical_name, name):
@@ -557,6 +574,7 @@ def convert_step(text: str, region: Region | None = None) -> ConvertedText:
         after = match.string[match.end() :]
         following = _FOLLOWING_WORDS.match(after)
         following_text = following[1] if following else ""
+        following_text = _END_OF_INGREDIENT.split(following_text, maxsplit=1)[0]
         ingredient = find_ingredient(following_text)
         unit = _normalize_step_unit(match["unit"])
 
