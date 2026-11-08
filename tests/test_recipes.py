@@ -1776,3 +1776,11 @@ def test_committed_screenshots_are_small_enough() -> None:
     for path in portfolio.SCREENSHOT_DIR.iterdir():
         if path.suffix.lower() in portfolio.SCREENSHOT_TYPES:
             assert path.stat().st_size <= 500 * 1024, f"{path.name} is over 500 KB"
+
+
+def test_homepage_links_to_the_demo_and_the_login_only() -> None:
+    with TestClient(portfolio.app) as client:
+        page = client.get("/").text
+    assert re.findall(r'href="(/recipes[^"]*)"', page) == ["/recipes/login"]
+    assert 'href="/recipes/login" rel="nofollow"' in page
+    assert 'href="/recipe_tool"' in page

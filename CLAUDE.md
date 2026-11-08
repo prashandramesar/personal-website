@@ -14,7 +14,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Saved recipes live in SQLite at `RECIPES_DB_PATH`, on the Render disk at `/var/data`. Anything else on the filesystem is lost on deploy. `recipes/backup.py` commits a daily JSON export to a private GitHub repo, and `scripts/restore_recipes.py` rebuilds the database from one.
 
 ## Endpoints
-- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or shows saved recipes, and only uses Prashand's own recipe. Its only link into the tool is the login button.
+- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or shows saved recipes, and only uses Prashand's own recipe. The login page is the only link into the tool, from this page and the homepage.
 - `/sitemap.xml`, `/robots.txt`: for search engines
 - `/api/dog` (GET): API root
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
