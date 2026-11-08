@@ -29,6 +29,7 @@
         <p class="text-gray-600">No saved recipes yet.</p>
         {% endif %}
     </div>
+    {% if backup_status %}<p class="text-gray-600 mt-6">{{ backup_status }}</p>{% endif %}
     <div class="flex justify-between items-center mt-6">
         <a href="/recipes/export" class="text-blue-600 hover:text-blue-700">Download a backup (JSON)</a>
         <form method="post" action="/recipes/logout">

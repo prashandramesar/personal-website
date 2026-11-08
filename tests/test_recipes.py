@@ -475,7 +475,7 @@ def test_extract_sends_a_structured_request_with_no_tools(
     assert recipe.title == "Test Cake"
     assert (usage.input_tokens, usage.output_tokens) == (120, 80)
     body = requests[0]["body"]
-    assert body["model"] == "claude-opus-5-5"
+    assert body["model"] == "claude-sonnet-5-5"
     assert body["output_config"]["effort"] == "low"
     assert body["output_config"]["format"]["type"] == "json_schema"
     assert body["fallbacks"] == "default"
@@ -1185,6 +1185,275 @@ def test_blocked_site_message_is_shown(
     )
     assert response.status_code == 400
     assert "allow automated requests" in response.text
+    assert "Paste the recipe text below" in response.text
+    # The link carries over, so it's kept with the pasted recipe.
+    assert (
+        'name="source_link" type="text" inputmode="url" value="https://example.com/x"'
+        in (response.text)
+    )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.youtube.com/shorts/abc",
+        "https://youtu.be/abc",
+        "https://www.instagram.com/reel/abc/",
+        "https://vm.tiktok.com/abc/",
+        "https://www.facebook.com/x",
+        "https://x.com/someone/status/1",
+    ],
+)
+def test_social_links_are_never_requested(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    public_dns(monkeypatch)
+    requested = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(request)
+        return html_response()
+
+    with pytest.raises(BlockedBySite, match="can't be read automatically"):
+        fetch_page(url, httpx.MockTransport(handler))
+    assert requested == []
+
+
+def test_short_link_that_redirects_to_a_social_site_is_stopped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    public_dns(monkeypatch)
+    requested = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(request.headers["host"])
+        return httpx.Response(
+            302, headers={"location": "https://www.instagram.com/reel/abc/"}
+        )
+
+    with pytest.raises(BlockedBySite):
+        fetch_page("https://short.example/abc", httpx.MockTransport(handler))
+    assert requested == ["short.example"]
+
+
+def test_a_similar_domain_is_not_mistaken_for_a_social_site(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    public_dns(monkeypatch)
+    page = fetch_page(
+        "https://notyoutube.com/cake", httpx.MockTransport(lambda _: html_response())
+    )
+    assert page.url == "https://notyoutube.com/cake"
+
+
+CAPTION = (
+    "Oma's cake! 1 cup flour, 2 eggs. Preheat the oven to 350°F. "
+    "Mix in 1 cup milk and bake."
+)
+
+
+def test_paste_shows_a_converted_review_page(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, store = tool
+    log_in(client)
+    requests = fake_anthropic(monkeypatch)
+
+    response = client.post(
+        "/recipes/paste",
+        data={"text": CAPTION, "source_link": "https://www.instagram.com/reel/abc/"},
+        headers=ORIGIN,
+    )
+
+    assert response.status_code == 200
+    assert "Check this recipe" in response.text
+    assert "≈ 125 g" in response.text
+    assert "175°C" in response.text
+    assert "https://www.instagram.com/reel/abc" in response.text
+    assert CAPTION in requests[0]["body"]["messages"][0]["content"]
+    assert requests[0]["body"]["model"] == "claude-sonnet-5-5"
+    assert store.imports_today() == 1
+    assert store.recent() == []
+
+
+def test_paste_never_requests_the_link(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = tool[0]
+    log_in(client)
+    fake_anthropic(monkeypatch)
+
+    def must_not_run(_: str) -> None:
+        raise AssertionError("A pasted recipe's link was requested")
+
+    monkeypatch.setattr(routes, "fetch_page", must_not_run)
+    response = client.post(
+        "/recipes/paste",
+        data={"text": CAPTION, "source_link": "http://169.254.169.254/"},
+        headers=ORIGIN,
+    )
+    assert response.status_code == 200
+
+
+def test_paste_works_without_a_link(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, store = tool
+    log_in(client)
+    fake_anthropic(monkeypatch)
+    response = client.post("/recipes/paste", data={"text": CAPTION}, headers=ORIGIN)
+    assert response.status_code == 200
+    assert 'name="source_url" value=""' in response.text
+
+
+def test_paste_with_a_saved_link_opens_it_without_paying_again(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, store = tool
+    log_in(client)
+    requests = fake_anthropic(monkeypatch)
+    recipe_id = save_sample(store, url="https://www.tiktok.com/@a/video/1")
+
+    response = client.post(
+        "/recipes/paste",
+        data={"text": CAPTION, "source_link": "https://www.tiktok.com/@a/video/1/"},
+        headers=ORIGIN,
+    )
+
+    assert response.headers["location"].startswith(f"/recipes/{recipe_id}")
+    assert requests == []
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("", "too short"),
+        ("too short", "too short"),
+        ("x" * (extract.MAX_SOURCE_CHARS + 1), "too long"),
+    ],
+)
+def test_paste_refuses_bad_lengths_before_paying(
+    tool: tuple[TestClient, RecipeStore],
+    monkeypatch: pytest.MonkeyPatch,
+    text: str,
+    expected: str,
+) -> None:
+    client, store = tool
+    log_in(client)
+    requests = fake_anthropic(monkeypatch)
+
+    response = client.post("/recipes/paste", data={"text": text}, headers=ORIGIN)
+
+    assert response.status_code == 400
+    assert expected in response.text
+    assert requests == []
+    assert store.imports_today() == 0
+
+
+def test_paste_keeps_your_text_when_it_fails(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, store = tool
+    log_in(client)
+    fake_anthropic(monkeypatch)
+    nothing = ExtractedRecipe(
+        is_recipe=False, title="", servings=None, ingredients=[], steps=[]
+    )
+    monkeypatch.setattr(extract, "extract_recipe", lambda _: (nothing, USAGE))
+
+    response = client.post(
+        "/recipes/paste",
+        data={"text": "Just some holiday photos from the beach.", "source_link": ""},
+        headers=ORIGIN,
+    )
+
+    assert response.status_code == 400
+    assert "No complete recipe" in response.text
+    assert "holiday photos from the beach" in response.text
+    assert store.imports_today() == 1
+
+
+def test_paste_respects_the_daily_limit(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, store = tool
+    log_in(client)
+    requests = fake_anthropic(monkeypatch)
+    monkeypatch.setenv("RECIPES_DAILY_IMPORT_LIMIT", "1")
+    store.record_import("claude-test", 1, 1)
+
+    response = client.post("/recipes/paste", data={"text": CAPTION}, headers=ORIGIN)
+
+    assert response.status_code == 429
+    assert requests == []
+
+
+def test_paste_requires_login_and_same_origin(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = tool[0]
+    requests = fake_anthropic(monkeypatch)
+    data = {"text": CAPTION}
+
+    denied = client.post("/recipes/paste", data=data, headers=ORIGIN)
+    assert denied.headers["location"] == "/recipes/login"
+
+    log_in(client)
+    cross_site = {"Origin": "https://evil.example"}
+    assert (
+        client.post("/recipes/paste", data=data, headers=cross_site).status_code == 403
+    )
+    assert requests == []
+
+
+def test_pasted_text_is_escaped(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = tool[0]
+    log_in(client)
+    fake_anthropic(monkeypatch)
+    attack = "<script>alert(1)</script>"
+    nothing = ExtractedRecipe(
+        is_recipe=False, title="", servings=None, ingredients=[], steps=[]
+    )
+    monkeypatch.setattr(extract, "extract_recipe", lambda _: (nothing, USAGE))
+
+    response = client.post(
+        "/recipes/paste",
+        data={"text": f"{attack} some longer text", "source_link": attack},
+        headers=ORIGIN,
+    )
+    assert attack not in response.text
+
+
+def test_backup_status_says_when_the_last_and_next_backups_are(
+    store: RecipeStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("RECIPES_BACKUP_REPO", raising=False)
+    monkeypatch.delenv("RECIPES_BACKUP_TOKEN", raising=False)
+    assert backup.backup_status(store) is None
+
+    monkeypatch.setenv("RECIPES_BACKUP_REPO", CONFIG.repo)
+    monkeypatch.setenv("RECIPES_BACKUP_TOKEN", CONFIG.token)
+    assert backup.backup_status(store) is None
+
+    store.set_setting(backup.LAST_ATTEMPT, "2026-11-08T10:00:00+00:00")
+    store.set_setting(backup.LAST_SUCCESS, "2026-11-08T10:00:00+00:00")
+    status = backup.backup_status(store) or ""
+    assert "08 Nov 2026, 10:00 UTC" in status
+    assert "09 Nov, 11:00 UTC" in status
+
+
+def test_list_shows_the_backup_status(
+    tool: tuple[TestClient, RecipeStore], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, store = tool
+    log_in(client)
+    monkeypatch.setenv("RECIPES_BACKUP_REPO", CONFIG.repo)
+    monkeypatch.setenv("RECIPES_BACKUP_TOKEN", CONFIG.token)
+    store.set_setting(backup.LAST_ATTEMPT, "2026-11-08T10:00:00+00:00")
+    store.set_setting(backup.LAST_SUCCESS, "2026-11-08T10:00:00+00:00")
+    assert "Last backup: 08 Nov 2026" in client.get("/recipes").text
 
 
 def test_not_a_recipe_still_counts_as_a_paid_import(

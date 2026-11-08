@@ -134,6 +134,22 @@ def backup_is_due(store: RecipeStore) -> bool:
     return _now() - datetime.fromisoformat(attempt) >= BACKUP_INTERVAL
 
 
+def backup_status(store: RecipeStore) -> str | None:
+    """Say when recipes last reached the backup repo, and when they next will."""
+    success = store.get_setting(LAST_SUCCESS)
+    attempt = store.get_setting(LAST_ATTEMPT)
+    if backup_config() is None or not success or not attempt:
+        return None
+    last = datetime.fromisoformat(success).strftime("%d %b %Y, %H:%M UTC")
+    # The hourly check can run up to an hour after the backup is due.
+    next_due = datetime.fromisoformat(attempt) + BACKUP_INTERVAL
+    latest = next_due + timedelta(seconds=CHECK_INTERVAL_SECONDS)
+    return (
+        f"Last backup: {last}. Recipes saved since then go in the next one, "
+        f"by {latest.strftime('%d %b, %H:%M UTC')}."
+    )
+
+
 def backup_warning(store: RecipeStore) -> str | None:
     """Explain what's wrong with backups, if anything is."""
     if backup_config() is None:

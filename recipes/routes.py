@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from starlette.datastructures import FormData
 
 from recipes import auth, backup, convert, extract
-from recipes.fetch import FetchError, canonicalize_url, fetch_page
+from recipes.fetch import BlockedBySite, FetchError, canonicalize_url, fetch_page
 from recipes.store import RecipeStore
 
 logger = logging.getLogger(__name__)
@@ -183,12 +183,19 @@ def create_router(render_page: RenderPage) -> APIRouter:
         error: str | None = None,
         url: str = "",
         status_code: int = 200,
+        paste_link: str = "",
+        paste_text: str = "",
+        suggest_paste: bool = False,
     ) -> Response:
         return page(
             "recipes_import.html",
             status_code=status_code,
             error=error,
             url=url,
+            paste_link=paste_link,
+            paste_text=paste_text,
+            suggest_paste=suggest_paste,
+            max_paste_chars=extract.MAX_SOURCE_CHARS,
             imports_today=store.imports_today(),
             daily_limit=daily_import_limit(),
             usage=store.usage_this_month(),
@@ -257,6 +264,7 @@ def create_router(render_page: RenderPage) -> APIRouter:
             query=query,
             backup_warning=backup.backup_warning(store),
             storage_warning=storage_warning(settings.db_path),
+            backup_status=backup.backup_status(store),
         )
 
     @router.get("/export")
@@ -319,8 +327,66 @@ def create_router(render_page: RenderPage) -> APIRouter:
             recipe, usage = await run_in_threadpool(extract.extract_recipe, source)
             store.record_import(usage.model, usage.input_tokens, usage.output_tokens)
             draft = extract.build_draft(recipe, source, final_url)
+        except BlockedBySite as e:
+            # The page can't be read, so go straight to pasting its text.
+            return import_page(
+                store,
+                f"{e} Paste the recipe text below instead.",
+                url,
+                400,
+                paste_link=url,
+                suggest_paste=True,
+            )
         except (FetchError, extract.ExtractionError) as e:
-            return import_page(store, str(e), url, 400)
+            return import_page(store, str(e), url, 400, paste_link=url)
+        return page("recipes_review.html", draft=draft)
+
+    @router.post("/paste")
+    async def import_pasted(request: Request) -> Response:
+        settings = settings_or_404()
+        if not auth.is_same_origin(request):
+            raise HTTPException(status_code=403)
+        if not _is_logged_in(request, settings):
+            return _redirect("/recipes/login")
+
+        store = RecipeStore(settings.db_path)
+        form = await request.form()
+        text = _field(form, "text")
+        link = _field(form, "source_link")
+        if link and not link.lower().startswith(("http://", "https://")):
+            link = f"https://{link}"
+        # The link is only stored, as a reference. It's never requested.
+        source_url = canonicalize_url(link) if link else None
+
+        def failed(message: str, status_code: int) -> Response:
+            return import_page(
+                store,
+                message,
+                status_code=status_code,
+                paste_link=link,
+                paste_text=text,
+                suggest_paste=True,
+            )
+
+        if source_url:
+            existing = store.find_by_source(source_url)
+            if existing:
+                return _redirect(f"/recipes/{existing}?{urlencode({'already': 1})}")
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return failed("The Anthropic API key isn't set up yet.", 503)
+        try:
+            source = extract.pasted_source(text)
+        except extract.ExtractionError as e:
+            return failed(str(e), 400)
+        if store.imports_today() >= daily_import_limit():
+            return failed("Today's import limit has been reached.", 429)
+
+        try:
+            recipe, usage = await run_in_threadpool(extract.extract_recipe, source)
+            store.record_import(usage.model, usage.input_tokens, usage.output_tokens)
+            draft = extract.build_draft(recipe, source, source_url)
+        except extract.ExtractionError as e:
+            return failed(str(e), 400)
         return page("recipes_review.html", draft=draft)
 
     @router.post("/save")
