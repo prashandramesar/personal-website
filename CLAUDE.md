@@ -15,7 +15,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - The live `recipes` table already exists, so `CREATE TABLE IF NOT EXISTS` won't change it. Add new columns in `RecipeStore._add_missing_columns` as well as `SCHEMA`, and keep `restore_json` able to read older export versions, because old backups stay in the backup repo.
 
 ## Endpoints
-- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or reads saved recipes, and its worked example is Prashand's own recipe. Its only link into the tool is the login page. The homepage links to the login page and to `/recipes`, which redirects to the login page unless you're logged in.
+- `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or reads saved recipes, and its worked example is Prashand's own recipe. The header on every page links to `/recipes`, which redirects to the login page unless you're logged in. This page and the homepage also link to the login page directly.
 - `/sitemap.xml`, `/robots.txt`: for search engines
 - `/api/dog` (GET): API root
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.

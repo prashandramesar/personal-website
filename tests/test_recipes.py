@@ -1708,7 +1708,7 @@ def test_demo_is_public_and_linked_from_the_main_pages(demo_page: str) -> None:
     assert "noindex" not in demo_page
 
 
-def test_demo_links_only_to_the_login_and_calls_no_api(
+def test_demo_links_to_nothing_past_the_login_and_calls_no_api(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def must_not_run() -> None:
@@ -1718,7 +1718,10 @@ def test_demo_links_only_to_the_login_and_calls_no_api(
     with TestClient(portfolio.app) as client:
         response = client.get("/recipe_tool")
     assert response.status_code == 200
-    assert re.findall(r'href="(/recipes[^"]*)"', response.text) == ["/recipes/login"]
+    assert re.findall(r'href="(/recipes[^"]*)"', response.text) == [
+        "/recipes",
+        "/recipes/login",
+    ]
 
 
 def test_login_stays_private_when_linked_from_the_demo(
@@ -1788,10 +1791,13 @@ def test_homepage_links_to_the_recipes_demo_and_login() -> None:
     assert 'href="/recipe_tool"' in page
 
 
-def test_homepage_recipes_link_sits_in_the_hero() -> None:
+@pytest.mark.parametrize("path", list(portfolio.PAGES))
+def test_recipes_link_sits_in_the_header_of_every_page(path: str) -> None:
     with TestClient(portfolio.app) as client:
-        page = client.get("/").text
-    assert page.index('href="/recipes"') < page.index("Featured Work")
+        page = client.get(path).text
+    assert page.count('href="/recipes"') == 1
+    assert page.index('href="/recipes"') < page.index("</nav>")
+    assert page.index('href="/recipes"') < page.index('id="mobile-menu"')
 
 
 def test_homepage_recipes_link_needs_a_login(
