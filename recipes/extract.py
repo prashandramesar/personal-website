@@ -23,10 +23,12 @@ from recipes.convert import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "claude-opus-5-5"
+DEFAULT_MODEL = "claude-sonnet-5-5"
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 MAX_SOURCE_CHARS = 30_000
 MIN_SOURCE_CHARS = 100
+# A pasted caption can be much shorter than a web page's text.
+MIN_PASTED_CHARS = 20
 MAX_OUTPUT_TOKENS = 16_000
 FLAG_NOT_IN_SOURCE = "not_in_source"
 FLAG_SOURCE_TRUNCATED = "source_truncated"
@@ -182,6 +184,19 @@ def trim_page(html: str, url: str) -> SourceText:
     if len(text) > MAX_SOURCE_CHARS:
         return SourceText(text[:MAX_SOURCE_CHARS], truncated=True)
     return SourceText(text)
+
+
+def pasted_source(text: str) -> SourceText:
+    """Check pasted text. Unlike a page, it's never cut short without asking."""
+    cleaned = text.strip()
+    if len(cleaned) < MIN_PASTED_CHARS:
+        raise ExtractionError("That's too short to be a recipe.")
+    if len(cleaned) > MAX_SOURCE_CHARS:
+        raise ExtractionError(
+            f"That's too long. Paste only the recipe, up to {MAX_SOURCE_CHARS:,} "
+            "characters."
+        )
+    return SourceText(cleaned)
 
 
 def make_client() -> anthropic.Anthropic:

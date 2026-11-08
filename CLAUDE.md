@@ -20,7 +20,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
 - `/predict` (POST, multipart `file`): same prediction, used by the website form and the Android app. Errors use an `error` field.
 - `/health` (GET): returns 503 if the model failed to load
-- `/recipes`, `/recipes/login`, `/recipes/logout`, `/recipes/import`, `/recipes/save`, `/recipes/export`, `/recipes/{id}`, `/recipes/{id}/delete`: the private recipe tool. All return 404 until `RECIPES_PASSWORD`, `RECIPES_SECRET` and `RECIPES_DB_PATH` are set.
+- `/recipes`, `/recipes/login`, `/recipes/logout`, `/recipes/import`, `/recipes/paste`, `/recipes/save`, `/recipes/export`, `/recipes/{id}`, `/recipes/{id}/delete`: the private recipe tool. All return 404 until `RECIPES_PASSWORD`, `RECIPES_SECRET` and `RECIPES_DB_PATH` are set.
 
 ## Rules
 - Never make HTTP requests from the app to its own URL. This caused an infinite loop before. Call the model code directly.
@@ -33,7 +33,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Keep Flask pinned to 2.2.3 and Werkzeug to 2.2.3 in requirements.txt.
 - Don't claim accuracy figures on the site unless they come from a measured result.
 - Recipe tool pages stay out of `PAGES`, so they stay out of the sitemap. Every route must check the login, and every POST must also check `is_same_origin`.
-- Only fetch user-supplied URLs through `fetch_page`, which checks every redirect against private addresses. If a site blocks the tool, report it and don't work around it, so no browser impersonation or proxies.
+- Only fetch user-supplied URLs through `fetch_page`, which checks every redirect against private addresses. If a site blocks the tool, report it and don't work around it, so no browser impersonation or proxies. `SOCIAL_DOMAINS` are never requested, because their terms bar scraping, so their posts are pasted instead.
 - Text from fetched pages is untrusted. Keep it inside the `<source>` tags, and don't give the extraction call any tools.
 - Secrets go in Render's Environment page, and `render.yaml` only lists their names with `sync: false`. Never put a secret in a URL, because `httpx` logs request URLs.
 - Saved recipes are private and may be copyrighted. Never commit them to this public repo or show them on a public page. The backup code refuses a repo that isn't private.

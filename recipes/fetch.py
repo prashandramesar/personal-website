@@ -28,6 +28,19 @@ USER_AGENT = (
     "Mozilla/5.0 (compatible; prashand-recipe-tool/1.0; +https://www.prashand.nl)"
 )
 TRACKING_PARAMS = {"fbclid", "gclid", "igshid", "mc_cid", "mc_eid", "ref"}
+# Their terms bar scraping, so these are never requested, even after a redirect
+# from a short link. Their posts are pasted instead.
+SOCIAL_DOMAINS = {
+    "facebook.com": "Facebook",
+    "fb.watch": "Facebook",
+    "instagram.com": "Instagram",
+    "threads.net": "Threads",
+    "tiktok.com": "TikTok",
+    "twitter.com": "X",
+    "x.com": "X",
+    "youtu.be": "YouTube",
+    "youtube.com": "YouTube",
+}
 
 
 class FetchError(Exception):
@@ -106,6 +119,9 @@ def _checked_target(url: str) -> tuple[httpx.URL, str]:
     host = parsed.host.lower()
     if _is_own_host(host):
         raise UnsafeUrl("This site can't import its own pages.")
+    for domain, platform in SOCIAL_DOMAINS.items():
+        if host == domain or host.endswith(f".{domain}"):
+            raise BlockedBySite(f"{platform} posts can't be read automatically.")
     return parsed, _checked_ip(host, port)
 
 
