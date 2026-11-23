@@ -1,0 +1,54 @@
+{#
+    The recipe fields shared by the review page and the edit page.
+
+    Each ingredient and step sends several fields with the same name (one
+    "amount", "name", "original" and "ingredient_flags" per ingredient), and the
+    server pairs them up by position. A line left empty is dropped when saving.
+    static/js/recipes.js adds the "Add" and "Remove" buttons, and clears a
+    line's notes once you change it.
+#}
+{% macro ingredient_line(item, flag_labels) %}
+<div class="mb-4" data-line>
+    <div class="flex gap-2">
+        <input name="amount" value="{{ item.amount }}" aria-label="Amount" class="input input-amount" data-clears-notes>
+        <input name="name" value="{{ item.name }}" aria-label="Ingredient" class="input" data-clears-notes>
+    </div>
+    <input type="hidden" name="original" value="{{ item.original }}">
+    <input type="hidden" name="ingredient_flags" value="{{ item.flags | join(',') }}" data-line-flags>
+    {% if item.original %}<p class="text-muted mt-1">Original: {{ item.original }}</p>{% endif %}
+    {% for flag in item.flags %}<p class="notice" data-line-note>{{ flag_labels[flag] }}</p>{% endfor %}
+    <button type="button" class="hidden link-quiet min-h-11" data-remove-line>Remove</button>
+</div>
+{% endmacro %}
+
+{% macro step_line(step, label, flag_labels) %}
+<div class="mb-4" data-line>
+    <textarea name="step" rows="3" aria-label="{{ label }}" class="input" data-clears-notes>{{ step.text }}</textarea>
+    <input type="hidden" name="step_original" value="{{ step.original }}">
+    <input type="hidden" name="step_flags" value="{{ step.flags | join(',') }}" data-line-flags>
+    {% if step.original and step.original != step.text %}<p class="text-muted mt-1">Original: {{ step.original }}</p>{% endif %}
+    {% for flag in step.flags %}<p class="notice" data-line-note>{{ flag_labels[flag] }}</p>{% endfor %}
+    <button type="button" class="hidden link-quiet min-h-11" data-remove-line>Remove</button>
+</div>
+{% endmacro %}
+
+{% macro fields(title, servings, ingredients, steps, flag_labels, max_title_chars, max_servings_chars) %}
+<label for="title" class="field-label">Title</label>
+<input id="title" name="title" value="{{ title }}" required maxlength="{{ max_title_chars }}" class="input mb-4">
+<label for="servings" class="field-label">Servings</label>
+<input id="servings" name="servings" value="{{ servings }}" maxlength="{{ max_servings_chars }}" class="input mb-8">
+
+<h2 class="subtitle mb-4">Ingredients</h2>
+<div data-lines="ingredient">
+    {% for item in ingredients %}{{ ingredient_line(item, flag_labels) }}{% endfor %}
+</div>
+<template id="new-ingredient">{{ ingredient_line({"amount": "", "name": "", "original": "", "flags": []}, flag_labels) }}</template>
+<button type="button" class="hidden btn mb-4" data-add-line="ingredient">Add ingredient</button>
+
+<h2 class="subtitle mt-8 mb-4">Steps</h2>
+<div data-lines="step">
+    {% for step in steps %}{{ step_line(step, "Step " ~ loop.index, flag_labels) }}{% endfor %}
+</div>
+<template id="new-step">{{ step_line({"text": "", "original": "", "flags": []}, "New step", flag_labels) }}</template>
+<button type="button" class="hidden btn mb-4" data-add-line="step">Add step</button>
+{% endmacro %}

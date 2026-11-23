@@ -418,8 +418,10 @@ a, button, summary { -webkit-tap-highlight-color: transparent; touch-action: man
     color: var(--on-success);
 }
 
-details > summary { min-height: 2.75rem; display: flex; align-items: center; gap: 0.375rem; cursor: pointer; list-style: none; }
-details > summary::-webkit-details-marker { display: none; }
+/* Private notes on a recipe. Line breaks are kept as typed. */
+.comment-list { border-top: 1px solid var(--border); }
+.comment { padding-block: 0.75rem 0.25rem; border-bottom: 1px solid var(--border); }
+.comment-text { white-space: pre-line; overflow-wrap: anywhere; }
 
 /* Recipe list */
 .tab {

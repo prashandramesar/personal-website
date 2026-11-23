@@ -12,7 +12,9 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Recipe conversion: `recipes/convert.py` does all metric and Celsius arithmetic, and a language model must never calculate a quantity.
 - `recipes/densities.json` holds cup weights from USDA FoodData Central, with the `fdc_id` and portion for each. Only add values with a source. If an ingredient isn't listed, show ml and flag it, and never guess grams.
 - Saved recipes live in SQLite at `RECIPES_DB_PATH`, on the Render disk at `/var/data`. Anything else on the filesystem is lost on deploy. `recipes/backup.py` commits a daily JSON export to a private GitHub repo, and `scripts/restore_recipes.py` rebuilds the database from one.
-- The live `recipes` table already exists, so `CREATE TABLE IF NOT EXISTS` won't change it. Add new columns in `RecipeStore._add_missing_columns` as well as `SCHEMA`, and keep `restore_json` able to read older export versions, because old backups stay in the backup repo.
+- The live `recipes` table already exists, so `CREATE TABLE IF NOT EXISTS` won't change it. Add new columns in `RecipeStore._add_missing_columns` as well as `SCHEMA`, and keep `restore_json` able to read older export versions, because old backups stay in the backup repo. FTS5 can't add a column, so a change to `recipe_search` goes through `_rebuild_search_if_outdated`.
+- Saved recipes can be edited (the review and edit pages share `templates/recipes_form.html`) and have private notes in `recipe_comments`. Notes are searchable and are part of the export, so they go in the daily backup. After changing a recipe or its notes, call `_refresh_search`.
+- Recipe routes get their settings from the `logged_in` dependency (pages) or `logged_in_post` (forms), which do the login and same-origin checks.
 
 ## Endpoints
 - `/`, `/kaai`, `/projects`, `/about`, `/dog_classifier`, `/android_app`, `/recipe_tool`, `/this_website`: HTML pages. `/recipe_tool` is the public demo of the recipe tool. It never calls the API or reads saved recipes, and its worked example is Prashand's own recipe. The header on every page links to `/recipes`, which redirects to the login page unless you're logged in. This page and the homepage also link to the login page directly.
@@ -21,7 +23,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - `/api/dog/predict` (POST, multipart `file`): returns top 3 breeds with confidence. Errors use FastAPI's `detail` field.
 - `/predict` (POST, multipart `file`): same prediction, used by the website form and the Android app. Errors use an `error` field.
 - `/health` (GET): returns 503 if the model failed to load
-- `/recipes`, `/recipes/login`, `/recipes/logout`, `/recipes/import`, `/recipes/paste`, `/recipes/save`, `/recipes/export`, `/recipes/{id}`, `/recipes/{id}/rename`, `/recipes/{id}/favorite`, `/recipes/{id}/delete`: the private recipe tool. All return 404 until `RECIPES_PASSWORD`, `RECIPES_SECRET` and `RECIPES_DB_PATH` are set.
+- `/recipes`, `/recipes/login`, `/recipes/logout`, `/recipes/import`, `/recipes/paste`, `/recipes/save`, `/recipes/export`, `/recipes/{id}`, `/recipes/{id}/edit`, `/recipes/{id}/favorite`, `/recipes/{id}/delete`, `/recipes/{id}/comments`, `/recipes/{id}/comments/{comment_id}/delete`: the private recipe tool. All return 404 until `RECIPES_PASSWORD`, `RECIPES_SECRET` and `RECIPES_DB_PATH` are set.
 
 ## Rules
 - Never make HTTP requests from the app to its own URL. This caused an infinite loop before. Call the model code directly.
@@ -50,7 +52,7 @@ Personal portfolio site with a dog breed classifier. Hosted on Render.
 - Design: calm and editorial, with lots of space, strong type, thin borders and one accent color. Light and dark themes follow the system setting, and a toggle overrides it.
 - Colors live only as tokens in `static/css/theme.css`, with components like `.btn`, `.input` and `.link`. Templates and scripts must not use Tailwind color, shadow or gradient classes, because those break one of the themes. Tests check this, and that text in both themes meets WCAG AA contrast.
 - Tailwind 2.2.19 utilities are only for layout and spacing. `static/css/site.css` is built from those plus `theme.css`. After adding a class or changing `theme.css`, run `python scripts/build_css.py` and commit the result. Tests fail if a class is missing or the theme is out of date.
-- Shared behaviour is in `static/js/site.js`: the theme toggle, mobile menu, instant stars and `data-busy` forms.
+- Shared behaviour is in `static/js/site.js`: the theme toggle, mobile menu, instant stars and `data-busy` forms. The recipe pages' own behaviour (original amounts, keep screen on, adding and removing lines) is in `static/js/recipes.js`. Keep scripts out of templates.
 - Photos in lists of work: add a file to `static/img/work/`, then pass `image` and `image_alt` to `work.row` in `templates/work.html`. Rows without a photo still line up.
 - New pages go in the `PAGES` table in `app.py`, which also feeds the sitemap.
 - Screenshots on `/recipe_tool`: add an image to `static/img/recipe_tool/`. The filename sets the order and caption, so `01-review-page.png` becomes "Review page". A test limits each to 500 KB. This repo is public. Prashand chose to allow titles, links and a few ingredient lines from imported recipes in these screenshots, but never written steps, full recipes, keys or private data.

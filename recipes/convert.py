@@ -266,8 +266,6 @@ class IngredientData:
 
 @dataclass(frozen=True)
 class ConvertedIngredient:
-    original_text: str
-    name: str
     amount: str
     flags: tuple[str, ...] = ()
 
@@ -461,7 +459,7 @@ def convert_ingredient(
 ) -> ConvertedIngredient:
     """Convert one ingredient. A value the author gave in metric always wins."""
     if quantity is None:
-        return ConvertedIngredient(original_text, name, "")
+        return ConvertedIngredient("")
 
     unit_text = (unit or "").strip()
     # "T" is a tablespoon and "t" a teaspoon, so these two can't be lowercased.
@@ -483,7 +481,7 @@ def convert_ingredient(
         count = _plain_number(quantity)
         if quantity_max is not None:
             count = f"{count}-{_plain_number(quantity_max)}"
-        return ConvertedIngredient(original_text, name, f"{count} {unit_text}".strip())
+        return ConvertedIngredient(f"{count} {unit_text}".strip())
 
     ingredient = find_ingredient(canonical_name) or find_ingredient(name)
     converted = _convert_quantity(
@@ -494,8 +492,8 @@ def convert_ingredient(
 
     author_value = _author_metric(original_text)
     if author_value:
-        return ConvertedIngredient(original_text, name, author_value)
-    return ConvertedIngredient(original_text, name, converted[0], converted[1])
+        return ConvertedIngredient(author_value)
+    return ConvertedIngredient(converted[0], converted[1])
 
 
 def _to_celsius(fahrenheit: int, nearest: int) -> int:

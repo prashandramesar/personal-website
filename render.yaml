@@ -2,7 +2,7 @@ services:
   # Web service
   - type: web
     name: prashand.nl
-    env: python
+    runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: ./start.sh
     healthCheckPath: /health
