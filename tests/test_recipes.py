@@ -36,7 +36,13 @@ from recipes.fetch import (
     canonicalize_url,
     fetch_page,
 )
-from recipes.store import SORT_NAME, SORT_NEWEST, RecipeStore, RestoreError
+from recipes.store import (
+    SORT_NAME,
+    SORT_NEWEST,
+    Comment,
+    RecipeStore,
+    RestoreError,
+)
 
 # An invented recipe, so that no copied text is committed to this public repo.
 RECIPE_HTML = """<!DOCTYPE html><html><head><title>Test cake</title>
@@ -570,6 +576,16 @@ def save_sample(
     )
 
 
+def retitle(store: RecipeStore, recipe_id: int, title: str) -> bool:
+    """Change only the title, the way the edit page does."""
+    recipe = store.get(recipe_id)
+    if recipe is None:
+        return store.update(recipe_id, title, "", [], [])
+    return store.update(
+        recipe_id, title, recipe.servings, recipe.ingredients, recipe.steps
+    )
+
+
 def test_store_saves_and_reads_a_recipe(store: RecipeStore) -> None:
     recipe = store.get(save_sample(store))
     assert recipe is not None
@@ -905,7 +921,13 @@ def stub_pipeline(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return fetched
 
 
-PROTECTED_GETS = ["/recipes", "/recipes/import", "/recipes/export", "/recipes/1"]
+PROTECTED_GETS = [
+    "/recipes",
+    "/recipes/import",
+    "/recipes/export",
+    "/recipes/1",
+    "/recipes/1/edit",
+]
 PROTECTED_POSTS = ["/recipes/import", "/recipes/save", "/recipes/1/delete"]
 
 
@@ -1862,13 +1884,13 @@ def test_upgrading_an_old_database_keeps_its_recipes(tmp_path: Path) -> None:
     assert [item.id for item in store.search("leek")] == [7]
 
 
-def test_upgraded_database_can_star_rename_and_add_recipes(tmp_path: Path) -> None:
+def test_upgraded_database_can_star_edit_and_add_recipes(tmp_path: Path) -> None:
     path = tmp_path / "old.db"
     old_database(path)
     store = RecipeStore(path)
 
     assert store.set_favorite(7, True)
-    assert store.rename(7, "New Soup")
+    assert retitle(store, 7, "New Soup")
     new_id = save_sample(store, "Another")
 
     assert [item.id for item in store.recent(favorites_only=True)] == [7]
@@ -1930,35 +1952,126 @@ def test_old_code_can_still_use_the_upgraded_table(tmp_path: Path) -> None:
     assert "Rollback" in titles
 
 
-def test_rename_updates_the_recipe_and_search(store: RecipeStore) -> None:
+def test_edit_updates_the_recipe_and_search(store: RecipeStore) -> None:
     recipe_id = save_sample(store, "Tomato Soup")
 
-    assert store.rename(recipe_id, "Oma's Favourite")
+    assert store.update(
+        recipe_id,
+        "Oma's Favourite",
+        "6",
+        [{"amount": "2", "name": "prei", "original": "", "flags": []}],
+        [{"text": "Kook zacht.", "original": "", "flags": []}],
+    )
 
     recipe = store.get(recipe_id)
     assert recipe is not None
     assert recipe.title == "Oma's Favourite"
-    assert [item.id for item in store.search("favourite")] == [recipe_id]
-    assert store.search("tomato") == []
-    assert [item.id for item in store.search("bloem")] == [recipe_id]
+    assert recipe.servings == "6"
+    assert recipe.ingredients[0]["name"] == "prei"
+    for word in ("favourite", "prei", "zacht"):
+        assert [item.id for item in store.search(word)] == [recipe_id]
+    for word in ("tomato", "bloem", "bak"):
+        assert store.search(word) == []
 
 
-def test_rename_keeps_the_source_link_check(store: RecipeStore) -> None:
+def test_edit_keeps_the_link_star_and_notes(store: RecipeStore) -> None:
     recipe_id = save_sample(store, url="https://a.io/kept")
-    store.rename(recipe_id, "Mine now")
+    store.set_favorite(recipe_id, True)
+    store.add_comment(recipe_id, "Less salt")
+
+    retitle(store, recipe_id, "Mine now")
+
+    recipe = store.get(recipe_id)
+    assert recipe is not None
     assert store.find_by_source("https://a.io/kept") == recipe_id
+    assert recipe.favorite is True
+    assert [comment.text for comment in recipe.comments] == ["Less salt"]
 
 
-def test_rename_and_favorite_of_a_missing_recipe_report_it(store: RecipeStore) -> None:
-    assert store.rename(999, "Nope") is False
+def test_edit_and_favorite_of_a_missing_recipe_report_it(store: RecipeStore) -> None:
+    assert retitle(store, 999, "Nope") is False
     assert store.set_favorite(999, True) is False
 
 
-def test_deleting_a_renamed_recipe_removes_its_search_entry(store: RecipeStore) -> None:
+def test_deleting_an_edited_recipe_removes_its_search_entry(
+    store: RecipeStore,
+) -> None:
     recipe_id = save_sample(store)
-    store.rename(recipe_id, "Renamed")
+    retitle(store, recipe_id, "Renamed")
     store.delete(recipe_id)
     assert store.search("renamed") == []
+
+
+def test_comments_are_kept_in_order_and_searchable(store: RecipeStore) -> None:
+    recipe_id = save_sample(store)
+    other = save_sample(store, "Other", "https://a.io/2")
+
+    assert store.add_comment(recipe_id, "Used half the sugar")
+    assert store.add_comment(recipe_id, "Twenty minutes was enough")
+
+    recipe = store.get(recipe_id)
+    assert recipe is not None
+    assert [comment.text for comment in recipe.comments] == [
+        "Used half the sugar",
+        "Twenty minutes was enough",
+    ]
+    assert [item.id for item in store.search("sugar")] == [recipe_id]
+    assert [item.id for item in store.search("tomato twenty")] == [recipe_id]
+    other_recipe = store.get(other)
+    assert other_recipe is not None
+    assert other_recipe.comments == ()
+
+
+def test_deleting_a_comment_removes_it_from_search(store: RecipeStore) -> None:
+    recipe_id = save_sample(store)
+    store.add_comment(recipe_id, "Used half the sugar")
+    recipe = store.get(recipe_id)
+    assert recipe is not None
+    comment_id = recipe.comments[0].id
+
+    assert store.delete_comment(recipe_id, comment_id)
+
+    assert store.search("sugar") == []
+    assert [item.id for item in store.search("tomato")] == [recipe_id]
+    assert store.delete_comment(recipe_id, comment_id) is False
+
+
+def test_a_comment_belongs_to_one_recipe(store: RecipeStore) -> None:
+    recipe_id = save_sample(store)
+    other = save_sample(store, "Other", "https://a.io/2")
+    store.add_comment(recipe_id, "Mine")
+    recipe = store.get(recipe_id)
+    assert recipe is not None
+
+    assert store.delete_comment(other, recipe.comments[0].id) is False
+    assert store.add_comment(999, "Nowhere") is False
+
+
+def test_deleting_a_recipe_removes_its_comments(store: RecipeStore) -> None:
+    recipe_id = save_sample(store, url=None)
+    store.add_comment(recipe_id, "Gone soon")
+    store.delete(recipe_id)
+    # A new recipe can get the same ID, and must not inherit the old notes.
+    new_id = save_sample(store, url=None)
+    recipe = store.get(new_id)
+    assert recipe is not None
+    assert recipe.comments == ()
+    assert store.search("gone") == []
+
+
+def test_a_comment_shows_its_day() -> None:
+    comment = Comment(1, "x", "2026-11-23T09:30:00+00:00")
+    assert comment.day() == "23 Nov 2026"
+
+
+def test_an_old_search_table_gets_comments_once(tmp_path: Path) -> None:
+    path = tmp_path / "old.db"
+    old_database(path)
+    store = RecipeStore(path)
+    store.add_comment(7, "Smoky")
+
+    assert [item.id for item in store.search("smoky")] == [7]
+    assert [item.id for item in RecipeStore(path).search("leek smoky")] == [7]
 
 
 def test_favorites_filter_lists_and_search(store: RecipeStore) -> None:
@@ -1983,12 +2096,13 @@ def test_setting_a_favorite_twice_keeps_it_set(store: RecipeStore) -> None:
     assert recipe.favorite is True
 
 
-def test_export_and_restore_keep_favorites_and_new_names(
+def test_export_and_restore_keep_favorites_edits_and_comments(
     store: RecipeStore, tmp_path: Path
 ) -> None:
     recipe_id = save_sample(store)
     store.set_favorite(recipe_id, True)
-    store.rename(recipe_id, "Mijn soep")
+    retitle(store, recipe_id, "Mijn soep")
+    store.add_comment(recipe_id, "Met extra\nprei")
 
     rebuilt = RecipeStore(tmp_path / "rebuilt.db")
     rebuilt.restore_json(store.export_json())
@@ -1997,8 +2111,38 @@ def test_export_and_restore_keep_favorites_and_new_names(
     assert recipe is not None
     assert recipe.favorite is True
     assert recipe.title == "Mijn soep"
+    assert [comment.text for comment in recipe.comments] == ["Met extra\nprei"]
     assert rebuilt.export_json() == store.export_json()
-    assert [item.id for item in rebuilt.search("mijn")] == [recipe_id]
+    assert [item.id for item in rebuilt.search("mijn prei")] == [recipe_id]
+
+
+def test_comments_go_in_the_backup(store: RecipeStore) -> None:
+    recipe_id = save_sample(store)
+    store.add_comment(recipe_id, "Private note")
+    data = json.loads(store.export_json())
+
+    assert data["version"] == 3
+    assert data["recipes"][0]["comments"][0]["text"] == "Private note"
+
+    transport, writes = github()
+    backup.run_backup(store, CONFIG, transport)
+    sent = json.loads(writes[0].content)["content"]
+    assert "Private note" in base64.b64decode(sent).decode("utf-8")
+
+
+def test_a_version_2_backup_still_restores(store: RecipeStore, tmp_path: Path) -> None:
+    """Backups made before comments existed."""
+    save_sample(store)
+    data = json.loads(store.export_json())
+    data["version"] = 2
+    for item in data["recipes"]:
+        del item["comments"]
+
+    rebuilt = RecipeStore(tmp_path / "rebuilt.db")
+
+    assert rebuilt.restore_json(json.dumps(data)) == 1
+    assert rebuilt.recent()[0].title == "Tomato Soup"
+    assert rebuilt.search("tomato")
 
 
 def test_a_version_1_backup_still_restores(store: RecipeStore, tmp_path: Path) -> None:
@@ -2008,6 +2152,7 @@ def test_a_version_1_backup_still_restores(store: RecipeStore, tmp_path: Path) -
     data["version"] = 1
     for item in data["recipes"]:
         del item["favorite"]
+        del item["comments"]
 
     rebuilt = RecipeStore(tmp_path / "rebuilt.db")
 
@@ -2049,10 +2194,10 @@ def test_an_unknown_sort_falls_back_to_newest(store: RecipeStore) -> None:
     assert len(store.recent()) == 2
 
 
-def test_a_renamed_recipe_moves_in_name_order(store: RecipeStore) -> None:
+def test_a_retitled_recipe_moves_in_name_order(store: RecipeStore) -> None:
     first = save_sample(store, "Apple", "https://a.io/1")
     save_sample(store, "Banana", "https://a.io/2")
-    store.rename(first, "Zebra cake")
+    retitle(store, first, "Zebra cake")
     assert sorted_titles(store, sort=SORT_NAME) == ["Banana", "Zebra cake"]
 
 
@@ -2079,77 +2224,136 @@ def test_search_and_favorites_use_the_chosen_order(store: RecipeStore) -> None:
     assert newest == ["Mild soup", "apple soup", "Zesty soup"]
 
 
-@pytest.mark.parametrize("action", ["rename", "favorite"])
-def test_new_actions_require_login(
+def recipe_form(title: str = "Mijn soep", **changes: Any) -> dict[str, Any]:
+    """What the review and edit pages send, with one ingredient and one step."""
+    return {
+        "title": title,
+        "servings": "4",
+        "amount": ["2"],
+        "name": ["prei"],
+        "original": ["2 leeks"],
+        "ingredient_flags": [""],
+        "step": ["Kook zacht."],
+        "step_original": ["Simmer."],
+        "step_flags": [""],
+        **changes,
+    }
+
+
+RECIPE_ACTIONS = ["edit", "favorite", "comments"]
+EVERY_FIELD = {**recipe_form("Hacked"), "favorite": "1", "text": "Hacked"}
+
+
+@pytest.mark.parametrize("action", RECIPE_ACTIONS)
+def test_recipe_actions_require_login(
     tool: tuple[TestClient, RecipeStore], action: str
 ) -> None:
     client, store = tool
     recipe_id = save_sample(store, "Unchanged")
     response = client.post(
-        f"/recipes/{recipe_id}/{action}",
-        data={"title": "Hacked", "favorite": "1"},
-        headers=ORIGIN,
+        f"/recipes/{recipe_id}/{action}", data=EVERY_FIELD, headers=ORIGIN
     )
     assert response.headers["location"] == "/recipes/login"
     recipe = store.get(recipe_id)
     assert recipe is not None
     assert recipe.title == "Unchanged"
     assert recipe.favorite is False
+    assert recipe.comments == ()
 
 
 @pytest.mark.parametrize(
     "headers",
     [{}, {"Origin": "https://evil.example"}, {"Referer": "https://evil.example/x"}],
 )
-@pytest.mark.parametrize("action", ["rename", "favorite"])
-def test_new_actions_refuse_cross_site_posts(
+@pytest.mark.parametrize("action", RECIPE_ACTIONS)
+def test_recipe_actions_refuse_cross_site_posts(
     tool: tuple[TestClient, RecipeStore], action: str, headers: dict[str, str]
 ) -> None:
     client, store = tool
     log_in(client)
     recipe_id = save_sample(store, "Unchanged")
     response = client.post(
-        f"/recipes/{recipe_id}/{action}",
-        data={"title": "Hacked", "favorite": "1"},
-        headers=headers,
+        f"/recipes/{recipe_id}/{action}", data=EVERY_FIELD, headers=headers
     )
     assert response.status_code == 403
     recipe = store.get(recipe_id)
     assert recipe is not None
     assert recipe.title == "Unchanged"
     assert recipe.favorite is False
+    assert recipe.comments == ()
 
 
-def test_rename_through_the_page(tool: tuple[TestClient, RecipeStore]) -> None:
+def test_edit_page_shows_the_saved_recipe(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client, store = tool
+    log_in(client)
+    recipe_id = save_flagged(store, ["volume_only"], [])
+
+    page = client.get(f"/recipes/{recipe_id}/edit").text
+
+    assert f'action="/recipes/{recipe_id}/edit"' in page
+    assert 'value="Flagged"' in page
+    assert 'value="≈ 125 g"' in page
+    assert "Original: 1 cup flour" in page
+    assert "Density unknown, so this stays a volume" in page
+    assert 'id="new-ingredient"' in page
+    assert 'src="/static/js/recipes.js"' in page
+
+
+def test_edit_through_the_page(tool: tuple[TestClient, RecipeStore]) -> None:
     client, store = tool
     log_in(client)
     recipe_id = save_sample(store)
+    store.add_comment(recipe_id, "Keep me")
 
     response = client.post(
-        f"/recipes/{recipe_id}/rename", data={"title": "  Mijn soep "}, headers=ORIGIN
+        f"/recipes/{recipe_id}/edit",
+        data=recipe_form(
+            "  Mijn soep ",
+            amount=["2", ""],
+            name=["prei", ""],
+            original=["2 leeks", ""],
+            ingredient_flags=["", ""],
+        ),
+        headers=ORIGIN,
     )
 
     assert response.status_code == 303
     assert response.headers["location"] == f"/recipes/{recipe_id}"
-    assert "Mijn soep" in client.get(f"/recipes/{recipe_id}").text
-    assert "Mijn soep" in client.get("/recipes").text
-    assert "Mijn soep" in client.get("/recipes", params={"q": "mijn"}).text
+    recipe = store.get(recipe_id)
+    assert recipe is not None
+    assert recipe.title == "Mijn soep"
+    assert [item["name"] for item in recipe.ingredients] == ["prei"]
+    assert recipe.steps[0]["text"] == "Kook zacht."
+    assert recipe.source_url == "https://a.io/1"
+    assert [comment.text for comment in recipe.comments] == ["Keep me"]
+    assert "Mijn soep" in client.get("/recipes", params={"q": "prei"}).text
 
 
-@pytest.mark.parametrize("title", ["", "   ", "x" * 201])
-def test_rename_refuses_a_bad_name(
-    tool: tuple[TestClient, RecipeStore], title: str
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"title": ""},
+        {"title": "x" * 201},
+        {"name": [""]},
+        {"step": ["  "]},
+        {"amount": ["1", "2"]},
+    ],
+)
+def test_edit_refuses_an_incomplete_recipe(
+    tool: tuple[TestClient, RecipeStore], changes: dict[str, Any]
 ) -> None:
     client, store = tool
     log_in(client)
     recipe_id = save_sample(store, "Unchanged")
 
     response = client.post(
-        f"/recipes/{recipe_id}/rename", data={"title": title}, headers=ORIGIN
+        f"/recipes/{recipe_id}/edit", data=recipe_form(**changes), headers=ORIGIN
     )
 
     assert response.status_code == 400
-    assert "1 to 200 characters" in response.text
+    assert "Nothing was changed" in response.text
     recipe = store.get(recipe_id)
     assert recipe is not None
     assert recipe.title == "Unchanged"
@@ -2160,31 +2364,109 @@ def test_a_200_character_name_is_allowed(tool: tuple[TestClient, RecipeStore]) -
     log_in(client)
     recipe_id = save_sample(store)
     response = client.post(
-        f"/recipes/{recipe_id}/rename", data={"title": "x" * 200}, headers=ORIGIN
+        f"/recipes/{recipe_id}/edit", data=recipe_form("x" * 200), headers=ORIGIN
     )
     assert response.status_code == 303
 
 
-@pytest.mark.parametrize("action", ["rename", "favorite"])
-def test_new_actions_report_an_unknown_recipe(
+@pytest.mark.parametrize("action", RECIPE_ACTIONS)
+def test_recipe_actions_report_an_unknown_recipe(
     tool: tuple[TestClient, RecipeStore], action: str
 ) -> None:
     client = tool[0]
     log_in(client)
-    response = client.post(
-        f"/recipes/999/{action}", data={"title": "x", "favorite": "1"}, headers=ORIGIN
-    )
+    response = client.post(f"/recipes/999/{action}", data=EVERY_FIELD, headers=ORIGIN)
     assert response.status_code == 404
 
 
-def test_custom_names_are_escaped(tool: tuple[TestClient, RecipeStore]) -> None:
+def test_edit_page_of_an_unknown_recipe_is_404(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client = tool[0]
+    log_in(client)
+    assert client.get("/recipes/999/edit").status_code == 404
+
+
+def test_custom_names_and_notes_are_escaped(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
     client, store = tool
     log_in(client)
     recipe_id = save_sample(store)
     attack = "<script>alert(1)</script>"
-    client.post(f"/recipes/{recipe_id}/rename", data={"title": attack}, headers=ORIGIN)
+    client.post(f"/recipes/{recipe_id}/edit", data=recipe_form(attack), headers=ORIGIN)
+    client.post(f"/recipes/{recipe_id}/comments", data={"text": attack}, headers=ORIGIN)
     assert attack not in client.get(f"/recipes/{recipe_id}").text
+    assert attack not in client.get(f"/recipes/{recipe_id}/edit").text
     assert attack not in client.get("/recipes").text
+
+
+def test_notes_through_the_page(tool: tuple[TestClient, RecipeStore]) -> None:
+    client, store = tool
+    log_in(client)
+    recipe_id = save_sample(store)
+
+    response = client.post(
+        f"/recipes/{recipe_id}/comments",
+        data={"text": "  Used half the sugar  "},
+        headers=ORIGIN,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/recipes/{recipe_id}#notes"
+    page = client.get(f"/recipes/{recipe_id}").text
+    assert '<p class="comment-text">Used half the sugar</p>' in page
+    found = client.get("/recipes", params={"q": "sugar"}).text
+    assert "Tomato Soup" in found
+
+    recipe = store.get(recipe_id)
+    assert recipe is not None
+    comment_id = recipe.comments[0].id
+    response = client.post(
+        f"/recipes/{recipe_id}/comments/{comment_id}/delete", headers=ORIGIN
+    )
+    assert response.status_code == 303
+    assert "Used half the sugar" not in client.get(f"/recipes/{recipe_id}").text
+
+
+@pytest.mark.parametrize("text", ["", "   ", "x" * 2001])
+def test_notes_refuse_a_bad_length(
+    tool: tuple[TestClient, RecipeStore], text: str
+) -> None:
+    client, store = tool
+    log_in(client)
+    recipe_id = save_sample(store)
+
+    response = client.post(
+        f"/recipes/{recipe_id}/comments", data={"text": text}, headers=ORIGIN
+    )
+
+    assert response.status_code == 400
+    assert "1 to 2,000 characters" in response.text
+    recipe = store.get(recipe_id)
+    assert recipe is not None
+    assert recipe.comments == ()
+
+
+def test_deleting_a_note_requires_login_and_same_origin(
+    tool: tuple[TestClient, RecipeStore],
+) -> None:
+    client, store = tool
+    recipe_id = save_sample(store)
+    store.add_comment(recipe_id, "Stays")
+    recipe = store.get(recipe_id)
+    assert recipe is not None
+    path = f"/recipes/{recipe_id}/comments/{recipe.comments[0].id}/delete"
+    evil = {"Origin": "https://evil.example"}
+
+    assert client.post(path, headers=ORIGIN).headers["location"] == "/recipes/login"
+    log_in(client)
+    assert client.post(path, headers=evil).status_code == 403
+    missing = f"/recipes/{recipe_id}/comments/999/delete"
+    assert client.post(missing, headers=ORIGIN).status_code == 404
+    kept = store.get(recipe_id)
+    assert kept is not None
+    assert [comment.text for comment in kept.comments] == ["Stays"]
 
 
 def test_starring_and_unstarring_through_the_page(
@@ -2357,7 +2639,9 @@ def test_recipe_page_has_the_keep_screen_on_control(
     # Hidden until the script confirms that the browser supports it.
     assert 'id="screen-control" class="hidden' in page
     assert 'id="screen-button"' in page
-    assert "navigator.wakeLock.request('screen')" in page
+    assert 'src="/static/js/recipes.js"' in page
+    script = Path(portfolio.BASE_DIR, "static", "js", "recipes.js").read_text("utf-8")
+    assert "navigator.wakeLock.request('screen')" in script
 
 
 def test_tool_pages_use_the_narrow_page_layout(
@@ -2461,14 +2745,14 @@ def test_review_page_keeps_originals_and_line_notes_visible(
     assert "Assumed US measures" in page
 
 
-def test_rename_error_page_keeps_the_note(
+def test_note_error_page_keeps_the_recipe_notes(
     tool: tuple[TestClient, RecipeStore],
 ) -> None:
     client, store = tool
     log_in(client)
     recipe_id = save_flagged(store, ["assumed_us_measures"], [])
     page = client.post(
-        f"/recipes/{recipe_id}/rename", data={"title": ""}, headers=ORIGIN
+        f"/recipes/{recipe_id}/comments", data={"text": ""}, headers=ORIGIN
     ).text
     assert 'id="assumed-us-note"' in page
     assert "Assumed US measures" not in page

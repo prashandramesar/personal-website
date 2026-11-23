@@ -1,7 +1,8 @@
 """Private pages for the recipe tool. They stay out of PAGES and the sitemap.
 
 Every route returns 404 until the password, secret and database path are set, so
-a missing setting can't expose the tool.
+a missing setting can't expose the tool. Routes get their settings from the
+`logged_in` or `logged_in_post` dependency, which also checks the login.
 """
 
 import logging
@@ -12,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from starlette.datastructures import FormData
@@ -27,6 +28,8 @@ DEFAULT_DAILY_IMPORT_LIMIT = 20
 MAX_LIST_ITEMS = 200
 MAX_FIELD_CHARS = 5_000
 MAX_TITLE_CHARS = 200
+MAX_SERVINGS_CHARS = 200
+MAX_COMMENT_CHARS = 2_000
 SORT_COOKIE = "recipes_sort"
 SORT_COOKIE_SECONDS = 365 * 24 * 60 * 60
 FLAG_LABELS = {
@@ -41,6 +44,7 @@ PRIVATE_HEADERS = {
     "X-Robots-Tag": "noindex, nofollow",
     "Cache-Control": "no-store",
 }
+INCOMPLETE_RECIPE = "A recipe needs a title, at least one ingredient and one step."
 
 RenderPage = Callable[..., HTMLResponse]
 
@@ -59,6 +63,32 @@ def settings_or_404() -> Settings:
     if not password or not secret or not db_path:
         raise HTTPException(status_code=404)
     return Settings(password, secret, Path(db_path))
+
+
+def _require_login(request: Request, settings: Settings) -> None:
+    """Send someone who isn't logged in to the login page."""
+    token = request.cookies.get(auth.COOKIE_NAME)
+    if not auth.session_is_valid(token, settings.secret):
+        raise HTTPException(
+            status_code=303,
+            headers={"Location": "/recipes/login", **PRIVATE_HEADERS},
+        )
+
+
+def logged_in(request: Request) -> Settings:
+    """Dependency for pages: the tool must be set up and you must be logged in."""
+    settings = settings_or_404()
+    _require_login(request, settings)
+    return settings
+
+
+def logged_in_post(request: Request) -> Settings:
+    """Dependency for forms: also refuses a form posted from another site."""
+    settings = settings_or_404()
+    if not auth.is_same_origin(request):
+        raise HTTPException(status_code=403)
+    _require_login(request, settings)
+    return settings
 
 
 def storage_warning(db_path: Path) -> str | None:
@@ -93,8 +123,16 @@ def _redirect(path: str) -> Response:
     return _private(RedirectResponse(path, status_code=303))
 
 
-def _is_logged_in(request: Request, settings: Settings) -> bool:
-    return auth.session_is_valid(request.cookies.get(auth.COOKIE_NAME), settings.secret)
+def _already_saved(recipe_id: int) -> Response:
+    """Open a recipe that was saved before, instead of paying to import it again."""
+    return _redirect(f"/recipes/{recipe_id}?{urlencode({'already': 1})}")
+
+
+def _with_scheme(link: str) -> str:
+    """Let people type "example.com/cake" without the https:// part."""
+    if link and not link.lower().startswith(("http://", "https://")):
+        return f"https://{link}"
+    return link
 
 
 def _field(form: FormData, name: str) -> str:
@@ -143,8 +181,13 @@ def _safe_source_url(value: str) -> str | None:
     return value if value.startswith(("http://", "https://")) else None
 
 
-def _parse_saved_recipe(form: FormData) -> dict[str, Any] | None:
-    """Read the review form. Returns None if it isn't a complete, sensible recipe."""
+def _parse_recipe_form(form: FormData) -> dict[str, Any] | None:
+    """Read the recipe form used by the review and edit pages.
+
+    Each line sends several fields with the same name, such as one "amount" and
+    one "name" per ingredient, so the lists must all be the same length. Lines
+    left empty are dropped. Returns None if it isn't a complete, sensible recipe.
+    """
     amounts = _list_field(form, "amount")
     names = _list_field(form, "name")
     originals = _list_field(form, "original")
@@ -158,7 +201,7 @@ def _parse_saved_recipe(form: FormData) -> dict[str, Any] | None:
     step_columns = [steps, step_originals, step_flags]
     if (
         not title
-        or len(title) > 200
+        or len(title) > MAX_TITLE_CHARS
         or len({len(column) for column in columns}) != 1
         or len({len(column) for column in step_columns}) != 1
         or len(names) > MAX_LIST_ITEMS
@@ -192,11 +235,9 @@ def _parse_saved_recipe(form: FormData) -> dict[str, Any] | None:
         return None
     return {
         "title": title,
-        "servings": _field(form, "servings")[:200],
-        "source_url": _safe_source_url(_field(form, "source_url")),
+        "servings": _field(form, "servings")[:MAX_SERVINGS_CHARS],
         "ingredients": ingredients,
         "steps": saved_steps,
-        "flags": _flags(_field(form, "recipe_flags")),
     }
 
 
@@ -206,7 +247,13 @@ def create_router(render_page: RenderPage) -> APIRouter:
     def page(template: str, status_code: int = 200, **context: Any) -> Response:
         return _private(
             render_page(
-                template, status_code=status_code, flag_labels=FLAG_LABELS, **context
+                template,
+                status_code=status_code,
+                flag_labels=FLAG_LABELS,
+                max_title_chars=MAX_TITLE_CHARS,
+                max_servings_chars=MAX_SERVINGS_CHARS,
+                max_comment_chars=MAX_COMMENT_CHARS,
+                **context,
             )
         )
 
@@ -244,10 +291,21 @@ def create_router(render_page: RenderPage) -> APIRouter:
             model=extract.model_name(),
         )
 
+    def saved_recipe(settings: Settings, recipe_id: int) -> tuple[RecipeStore, Recipe]:
+        """Open the store and a recipe in it, or answer 404."""
+        store = RecipeStore(settings.db_path)
+        recipe = store.get(recipe_id)
+        if recipe is None:
+            raise HTTPException(status_code=404)
+        return store, recipe
+
+    # Logging in and out
+
     @router.get("/login")
     async def login_form(request: Request) -> Response:
         settings = settings_or_404()
-        if _is_logged_in(request, settings):
+        token = request.cookies.get(auth.COOKIE_NAME)
+        if auth.session_is_valid(token, settings.secret):
             return _redirect("/recipes")
         return page("recipes_login.html", error=None)
 
@@ -292,13 +350,16 @@ def create_router(render_page: RenderPage) -> APIRouter:
         response.delete_cookie(auth.COOKIE_NAME, path="/recipes")
         return response
 
+    # The list, search and export
+
     @router.get("")
     async def recipe_list(
-        request: Request, q: str = "", favorites: str = "", sort: str = ""
+        request: Request,
+        q: str = "",
+        favorites: str = "",
+        sort: str = "",
+        settings: Settings = Depends(logged_in),
     ) -> Response:
-        settings = settings_or_404()
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
         store = RecipeStore(settings.db_path)
         query = q.strip()[:200]
         favorites_only = favorites == "1"
@@ -343,10 +404,7 @@ def create_router(render_page: RenderPage) -> APIRouter:
         return response
 
     @router.get("/export")
-    async def export(request: Request) -> Response:
-        settings = settings_or_404()
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
+    async def export(settings: Settings = Depends(logged_in)) -> Response:
         return _private(
             Response(
                 RecipeStore(settings.db_path).export_json(),
@@ -355,32 +413,25 @@ def create_router(render_page: RenderPage) -> APIRouter:
             )
         )
 
+    # Importing: a link or pasted text becomes a draft on the review page
+
     @router.get("/import")
-    async def import_form(request: Request) -> Response:
-        settings = settings_or_404()
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
+    async def import_form(settings: Settings = Depends(logged_in)) -> Response:
         return import_page(RecipeStore(settings.db_path))
 
     @router.post("/import")
-    async def import_url(request: Request) -> Response:
-        settings = settings_or_404()
-        if not auth.is_same_origin(request):
-            raise HTTPException(status_code=403)
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
-
+    async def import_url(
+        request: Request, settings: Settings = Depends(logged_in_post)
+    ) -> Response:
         store = RecipeStore(settings.db_path)
         form = await request.form()
-        url = _field(form, "url")
+        url = _with_scheme(_field(form, "url"))
         if not url:
             return import_page(store, "Enter a link to import.", url, 400)
-        if not url.lower().startswith(("http://", "https://")):
-            url = f"https://{url}"
 
         existing = store.find_by_source(canonicalize_url(url))
         if existing:
-            return _redirect(f"/recipes/{existing}?{urlencode({'already': 1})}")
+            return _already_saved(existing)
         if not os.environ.get("ANTHROPIC_API_KEY"):
             return import_page(
                 store, "The Anthropic API key isn't set up yet.", url, 503
@@ -395,7 +446,7 @@ def create_router(render_page: RenderPage) -> APIRouter:
             final_url = canonicalize_url(fetched.url)
             existing = store.find_by_source(final_url)
             if existing:
-                return _redirect(f"/recipes/{existing}?{urlencode({'already': 1})}")
+                return _already_saved(existing)
             source = await run_in_threadpool(
                 extract.trim_page, fetched.html, fetched.url
             )
@@ -417,19 +468,13 @@ def create_router(render_page: RenderPage) -> APIRouter:
         return page("recipes_review.html", draft=draft)
 
     @router.post("/paste")
-    async def import_pasted(request: Request) -> Response:
-        settings = settings_or_404()
-        if not auth.is_same_origin(request):
-            raise HTTPException(status_code=403)
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
-
+    async def import_pasted(
+        request: Request, settings: Settings = Depends(logged_in_post)
+    ) -> Response:
         store = RecipeStore(settings.db_path)
         form = await request.form()
         text = _field(form, "text")
-        link = _field(form, "source_link")
-        if link and not link.lower().startswith(("http://", "https://")):
-            link = f"https://{link}"
+        link = _with_scheme(_field(form, "source_link"))
         # The link is only stored, as a reference. It's never requested.
         source_url = canonicalize_url(link) if link else None
 
@@ -446,7 +491,7 @@ def create_router(render_page: RenderPage) -> APIRouter:
         if source_url:
             existing = store.find_by_source(source_url)
             if existing:
-                return _redirect(f"/recipes/{existing}?{urlencode({'already': 1})}")
+                return _already_saved(existing)
         if not os.environ.get("ANTHROPIC_API_KEY"):
             return failed("The Anthropic API key isn't set up yet.", 503)
         try:
@@ -465,59 +510,56 @@ def create_router(render_page: RenderPage) -> APIRouter:
         return page("recipes_review.html", draft=draft)
 
     @router.post("/save")
-    async def save(request: Request) -> Response:
-        settings = settings_or_404()
-        if not auth.is_same_origin(request):
-            raise HTTPException(status_code=403)
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
-        recipe = _parse_saved_recipe(await request.form())
+    async def save(
+        request: Request, settings: Settings = Depends(logged_in_post)
+    ) -> Response:
+        form = await request.form()
+        recipe = _parse_recipe_form(form)
         if recipe is None:
-            raise HTTPException(status_code=400, detail="That recipe is incomplete.")
-        recipe_id = RecipeStore(settings.db_path).save(**recipe)
+            raise HTTPException(status_code=400, detail=INCOMPLETE_RECIPE)
+        recipe_id = RecipeStore(settings.db_path).save(
+            **recipe,
+            source_url=_safe_source_url(_field(form, "source_url")),
+            flags=_flags(_field(form, "recipe_flags")),
+        )
         return _redirect(f"/recipes/{recipe_id}")
 
+    # One saved recipe
+
     @router.get("/{recipe_id:int}")
-    async def detail(request: Request, recipe_id: int, already: int = 0) -> Response:
-        settings = settings_or_404()
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
-        recipe = RecipeStore(settings.db_path).get(recipe_id)
-        if recipe is None:
-            raise HTTPException(status_code=404)
+    async def detail(
+        recipe_id: int, already: int = 0, settings: Settings = Depends(logged_in)
+    ) -> Response:
+        _, recipe = saved_recipe(settings, recipe_id)
         return recipe_page(recipe, already=bool(already))
 
-    @router.post("/{recipe_id:int}/rename")
-    async def rename(request: Request, recipe_id: int) -> Response:
-        settings = settings_or_404()
-        if not auth.is_same_origin(request):
-            raise HTTPException(status_code=403)
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
-        store = RecipeStore(settings.db_path)
-        recipe = store.get(recipe_id)
-        if recipe is None:
-            raise HTTPException(status_code=404)
+    @router.get("/{recipe_id:int}/edit")
+    async def edit_form(
+        recipe_id: int, settings: Settings = Depends(logged_in)
+    ) -> Response:
+        _, recipe = saved_recipe(settings, recipe_id)
+        return page("recipes_edit.html", recipe=recipe, error=None)
 
-        form = await request.form()
-        title = _field(form, "title")
-        if not title or len(title) > MAX_TITLE_CHARS:
-            return recipe_page(
-                recipe,
+    @router.post("/{recipe_id:int}/edit")
+    async def edit(
+        request: Request, recipe_id: int, settings: Settings = Depends(logged_in_post)
+    ) -> Response:
+        store, recipe = saved_recipe(settings, recipe_id)
+        changes = _parse_recipe_form(await request.form())
+        if changes is None:
+            return page(
+                "recipes_edit.html",
                 status_code=400,
-                rename_error=f"A name needs 1 to {MAX_TITLE_CHARS} characters.",
-                rename_value=title[:MAX_TITLE_CHARS],
+                recipe=recipe,
+                error=f"{INCOMPLETE_RECIPE} Nothing was changed.",
             )
-        store.rename(recipe_id, title)
+        store.update(recipe_id, **changes)
         return _redirect(f"/recipes/{recipe_id}")
 
     @router.post("/{recipe_id:int}/favorite")
-    async def favorite(request: Request, recipe_id: int) -> Response:
-        settings = settings_or_404()
-        if not auth.is_same_origin(request):
-            raise HTTPException(status_code=403)
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
+    async def favorite(
+        request: Request, recipe_id: int, settings: Settings = Depends(logged_in_post)
+    ) -> Response:
         form = await request.form()
         # Each tap sets a state, so a double tap can't undo itself.
         wanted = _field(form, "favorite")
@@ -530,13 +572,36 @@ def create_router(render_page: RenderPage) -> APIRouter:
         )
 
     @router.post("/{recipe_id:int}/delete")
-    async def delete(request: Request, recipe_id: int) -> Response:
-        settings = settings_or_404()
-        if not auth.is_same_origin(request):
-            raise HTTPException(status_code=403)
-        if not _is_logged_in(request, settings):
-            return _redirect("/recipes/login")
+    async def delete(
+        recipe_id: int, settings: Settings = Depends(logged_in_post)
+    ) -> Response:
         RecipeStore(settings.db_path).delete(recipe_id)
         return _redirect("/recipes")
+
+    # Private notes on a recipe
+
+    @router.post("/{recipe_id:int}/comments")
+    async def add_comment(
+        request: Request, recipe_id: int, settings: Settings = Depends(logged_in_post)
+    ) -> Response:
+        store, recipe = saved_recipe(settings, recipe_id)
+        text = _field(await request.form(), "text")
+        if not text or len(text) > MAX_COMMENT_CHARS:
+            return recipe_page(
+                recipe,
+                status_code=400,
+                comment_error=f"A note needs 1 to {MAX_COMMENT_CHARS:,} characters.",
+                comment_value=text[:MAX_COMMENT_CHARS],
+            )
+        store.add_comment(recipe_id, text)
+        return _redirect(f"/recipes/{recipe_id}#notes")
+
+    @router.post("/{recipe_id:int}/comments/{comment_id:int}/delete")
+    async def delete_comment(
+        recipe_id: int, comment_id: int, settings: Settings = Depends(logged_in_post)
+    ) -> Response:
+        if not RecipeStore(settings.db_path).delete_comment(recipe_id, comment_id):
+            raise HTTPException(status_code=404)
+        return _redirect(f"/recipes/{recipe_id}#notes")
 
     return router

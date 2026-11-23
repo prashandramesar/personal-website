@@ -8,7 +8,7 @@ This project is a personal portfolio website with a built-in dog breed classifie
 - Dog breed classifier that identifies 120 breeds from uploaded images
 - RESTful API for programmatic access to the classifier
 - Health check endpoint for monitoring
-- Private recipe tool: imports a recipe from a link, converts it to metric and Celsius, and saves it with search
+- Private recipe tool: imports a recipe from a link or pasted text, converts it to metric and Celsius, and saves it with search, editing, private notes and a daily backup
 
 ## Architecture
 
@@ -135,8 +135,17 @@ The site is deployed on Render using `render.yaml`:
 ├── render.yaml               # Render service configuration
 ├── requirements.txt          # Runtime dependencies
 ├── requirements-dev.txt      # Runtime dependencies plus dev tools
+├── recipes/                  # The private recipe tool
+│   ├── routes.py             # Its pages, behind a login
+│   ├── auth.py               # Password login with a signed cookie
+│   ├── fetch.py              # Safe fetching of recipe links
+│   ├── extract.py            # Trims a page and asks Claude for the recipe
+│   ├── convert.py            # Metric and Celsius conversion, all in code
+│   ├── store.py              # SQLite storage and search
+│   └── backup.py             # Daily backup to a private GitHub repo
 ├── scripts/build_css.py      # Rebuilds static/css/site.css after template changes
-├── static/                   # CSS, images and the CV
+├── scripts/restore_recipes.py  # Rebuilds the recipe database from a backup
+├── static/                   # CSS, JavaScript, images and the CV
 ├── templates/                # HTML templates, each extending base.html
 ├── tests/                    # Test suite and sample images
 ├── dog_breed_model_quantized.tflite  # TensorFlow Lite model

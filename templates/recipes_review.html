@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import 'recipes_form.html' as recipe_form %}
 {% block title %}Recipes - Review{% endblock %}
 {% block description %}A private recipe tool.{% endblock %}
 {% block head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
@@ -12,38 +13,11 @@
         <input type="hidden" name="source_url" value="{{ draft.source_url or '' }}">
         <input type="hidden" name="recipe_flags" value="{{ draft.flags | join(',') }}">
 
-        <label for="title" class="field-label">Title</label>
-        <input id="title" name="title" value="{{ draft.title }}" required maxlength="200" class="input mb-4">
-        <label for="servings" class="field-label">Servings</label>
-        <input id="servings" name="servings" value="{{ draft.servings }}" maxlength="200" class="input mb-8">
-
-        <h2 class="subtitle mb-4">Ingredients</h2>
-        {% for item in draft.ingredients %}
-        <div class="mb-4">
-            <div class="flex gap-2">
-                <input name="amount" value="{{ item.amount }}" aria-label="Amount" class="input input-amount">
-                <input name="name" value="{{ item.name }}" aria-label="Ingredient" class="input">
-            </div>
-            <input type="hidden" name="original" value="{{ item.original }}">
-            <input type="hidden" name="ingredient_flags" value="{{ item.flags | join(',') }}">
-            <p class="text-muted mt-1">Original: {{ item.original }}</p>
-            {% for flag in item.flags %}<p class="notice">{{ flag_labels[flag] }}</p>{% endfor %}
-        </div>
-        {% endfor %}
-
-        <h2 class="subtitle mt-8 mb-4">Steps</h2>
-        {% for step in draft.steps %}
-        <div class="mb-4">
-            <textarea name="step" rows="3" aria-label="Step {{ loop.index }}" class="input">{{ step.text }}</textarea>
-            <input type="hidden" name="step_original" value="{{ step.original }}">
-            <input type="hidden" name="step_flags" value="{{ step.flags | join(',') }}">
-            {% if step.original != step.text %}<p class="text-muted mt-1">Original: {{ step.original }}</p>{% endif %}
-            {% for flag in step.flags %}<p class="notice">{{ flag_labels[flag] }}</p>{% endfor %}
-        </div>
-        {% endfor %}
+        {{ recipe_form.fields(draft.title, draft.servings, draft.ingredients, draft.steps, flag_labels, max_title_chars, max_servings_chars) }}
 
         <button type="submit" class="btn btn-primary mt-4">Save recipe</button>
     </form>
     <p class="mt-4"><a href="/recipes/import" class="link">Discard and import another</a></p>
 </main>
 {% endblock %}
+{% block scripts %}<script src="/static/js/recipes.js" defer></script>{% endblock %}

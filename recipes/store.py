@@ -23,8 +23,17 @@ CREATE TABLE IF NOT EXISTS recipes (
     created_at TEXT NOT NULL,
     favorite INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS recipe_comments (
+    id INTEGER PRIMARY KEY,
+    recipe_id INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS recipe_comments_by_recipe
+    ON recipe_comments (recipe_id);
 CREATE VIRTUAL TABLE IF NOT EXISTS recipe_search USING fts5(
-    title, ingredients, steps, tokenize = 'unicode61 remove_diacritics 2'
+    title, ingredients, steps, comments,
+    tokenize = 'unicode61 remove_diacritics 2'
 );
 CREATE TABLE IF NOT EXISTS imports (
     id INTEGER PRIMARY KEY,
@@ -38,9 +47,17 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 """
-EXPORT_VERSION = 2
-# Version 1 exports have no favorites. Their recipes restore as not starred.
-RESTORABLE_VERSIONS = {1, 2}
+# FTS5 tables can't gain a column, so an older search table is rebuilt instead.
+SEARCH_TABLE = """
+CREATE VIRTUAL TABLE recipe_search USING fts5(
+    title, ingredients, steps, comments,
+    tokenize = 'unicode61 remove_diacritics 2'
+)
+"""
+EXPORT_VERSION = 3
+# Old backups stay in the backup repo, so every version can still be restored.
+# Version 1 has no favorites and versions 1 and 2 have no comments.
+RESTORABLE_VERSIONS = {1, 2, 3}
 
 SORT_NEWEST = "newest"
 SORT_NAME = "name"
@@ -56,6 +73,19 @@ class RestoreError(Exception):
 
 
 @dataclass(frozen=True)
+class Comment:
+    """A private note on a recipe."""
+
+    id: int
+    text: str
+    created_at: str
+
+    def day(self) -> str:
+        """The date it was written, like "23 Nov 2026"."""
+        return datetime.fromisoformat(self.created_at).strftime("%d %b %Y")
+
+
+@dataclass(frozen=True)
 class Recipe:
     id: int
     title: str
@@ -66,6 +96,8 @@ class Recipe:
     flags: list[str]
     created_at: str
     favorite: bool = False
+    # Only filled in by get() and the export. The list page doesn't need them.
+    comments: tuple[Comment, ...] = ()
 
 
 def _now() -> datetime:
@@ -94,6 +126,10 @@ def _search_query(text: str) -> str:
     return " ".join(f'"{word}"*' for word in words)
 
 
+def _column_names(connection: sqlite3.Connection, table: str) -> set[str]:
+    return {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}
+
+
 class RecipeStore:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -101,6 +137,8 @@ class RecipeStore:
         with self._connection() as connection:
             connection.executescript(SCHEMA)
             self._add_missing_columns(connection)
+        with self._connection() as connection:
+            self._rebuild_search_if_outdated(connection)
 
     @staticmethod
     def _add_missing_columns(connection: sqlite3.Connection) -> None:
@@ -108,10 +146,7 @@ class RecipeStore:
 
         CREATE TABLE IF NOT EXISTS leaves an existing table as it is.
         """
-        columns = {
-            row["name"] for row in connection.execute("PRAGMA table_info(recipes)")
-        }
-        if "favorite" in columns:
+        if "favorite" in _column_names(connection, "recipes"):
             return
         try:
             connection.execute(
@@ -121,6 +156,21 @@ class RecipeStore:
             # Another request can get there first while the app is starting up.
             if "duplicate column" not in str(e).lower():
                 raise
+
+    def _rebuild_search_if_outdated(self, connection: sqlite3.Connection) -> None:
+        """Give a search table from an older version its comments column.
+
+        This happens once. The lock stops two requests from rebuilding together.
+        """
+        if "comments" in _column_names(connection, "recipe_search"):
+            return
+        connection.execute("BEGIN IMMEDIATE")
+        if "comments" in _column_names(connection, "recipe_search"):
+            return  # Another request rebuilt it while this one waited.
+        connection.execute("DROP TABLE recipe_search")
+        connection.execute(SEARCH_TABLE)
+        for row in connection.execute("SELECT id FROM recipes").fetchall():
+            self._refresh_search(connection, row["id"])
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
@@ -135,7 +185,7 @@ class RecipeStore:
             connection.close()
 
     @staticmethod
-    def _recipe(row: sqlite3.Row) -> Recipe:
+    def _recipe(row: sqlite3.Row, comments: tuple[Comment, ...] = ()) -> Recipe:
         return Recipe(
             id=row["id"],
             title=row["title"],
@@ -146,26 +196,51 @@ class RecipeStore:
             flags=json.loads(row["flags"]),
             created_at=row["created_at"],
             favorite=bool(row["favorite"]),
+            comments=comments,
         )
 
     @staticmethod
-    def _write_search(
-        connection: sqlite3.Connection,
-        recipe_id: int,
-        title: str,
-        ingredients: list[dict[str, Any]],
-        steps: list[dict[str, Any]],
-    ) -> None:
+    def _comments(
+        connection: sqlite3.Connection, recipe_id: int
+    ) -> tuple[Comment, ...]:
+        rows = connection.execute(
+            "SELECT id, text, created_at FROM recipe_comments "
+            "WHERE recipe_id = ? ORDER BY id",
+            (recipe_id,),
+        ).fetchall()
+        return tuple(Comment(row["id"], row["text"], row["created_at"]) for row in rows)
+
+    def _refresh_search(self, connection: sqlite3.Connection, recipe_id: int) -> None:
+        """Rewrite a recipe's search entry from what's saved now.
+
+        Call this after any change to a recipe or its comments.
+        """
+        connection.execute("DELETE FROM recipe_search WHERE rowid = ?", (recipe_id,))
+        row = connection.execute(
+            "SELECT * FROM recipes WHERE id = ?", (recipe_id,)
+        ).fetchone()
+        if row is None:
+            return
+        recipe = self._recipe(row, self._comments(connection, recipe_id))
         # Both the converted and original wording are searchable.
         ingredient_text = " ".join(
-            f"{item.get('name', '')} {item.get('original', '')}" for item in ingredients
+            f"{item.get('name', '')} {item.get('original', '')}"
+            for item in recipe.ingredients
         )
-        step_text = " ".join(str(step.get("text", "")) for step in steps)
+        step_text = " ".join(str(step.get("text", "")) for step in recipe.steps)
+        comment_text = " ".join(comment.text for comment in recipe.comments)
         connection.execute(
-            "INSERT INTO recipe_search (rowid, title, ingredients, steps) "
-            "VALUES (?, ?, ?, ?)",
-            (recipe_id, title, ingredient_text, step_text),
+            "INSERT INTO recipe_search (rowid, title, ingredients, steps, comments) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (recipe_id, recipe.title, ingredient_text, step_text, comment_text),
         )
+
+    @staticmethod
+    def _find_by_source(connection: sqlite3.Connection, source_url: str) -> int | None:
+        row = connection.execute(
+            "SELECT id FROM recipes WHERE source_url = ?", (source_url,)
+        ).fetchone()
+        return int(row["id"]) if row else None
 
     def save(
         self,
@@ -179,11 +254,9 @@ class RecipeStore:
         """Save a recipe, or return the existing one if that link is already saved."""
         with self._connection() as connection:
             if source_url:
-                existing = connection.execute(
-                    "SELECT id FROM recipes WHERE source_url = ?", (source_url,)
-                ).fetchone()
+                existing = self._find_by_source(connection, source_url)
                 if existing:
-                    return int(existing["id"])
+                    return existing
             cursor = connection.execute(
                 "INSERT INTO recipes "
                 "(title, servings, source_url, ingredients, steps, flags, created_at) "
@@ -199,43 +272,57 @@ class RecipeStore:
                 ),
             )
             recipe_id = int(cursor.lastrowid or 0)
-            self._write_search(connection, recipe_id, title, ingredients, steps)
+            self._refresh_search(connection, recipe_id)
             return recipe_id
+
+    def update(
+        self,
+        recipe_id: int,
+        title: str,
+        servings: str,
+        ingredients: list[dict[str, Any]],
+        steps: list[dict[str, Any]],
+    ) -> bool:
+        """Replace what an edit can change. The link, star and notes stay."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "UPDATE recipes SET title = ?, servings = ?, ingredients = ?, "
+                "steps = ? WHERE id = ?",
+                (
+                    title,
+                    servings,
+                    json.dumps(ingredients, ensure_ascii=False),
+                    json.dumps(steps, ensure_ascii=False),
+                    recipe_id,
+                ),
+            )
+            if not cursor.rowcount:
+                return False
+            self._refresh_search(connection, recipe_id)
+        return True
 
     def get(self, recipe_id: int) -> Recipe | None:
         with self._connection() as connection:
             row = connection.execute(
                 "SELECT * FROM recipes WHERE id = ?", (recipe_id,)
             ).fetchone()
-        return self._recipe(row) if row else None
+            if row is None:
+                return None
+            return self._recipe(row, self._comments(connection, recipe_id))
 
     def find_by_source(self, source_url: str) -> int | None:
         with self._connection() as connection:
-            row = connection.execute(
-                "SELECT id FROM recipes WHERE source_url = ?", (source_url,)
-            ).fetchone()
-        return int(row["id"]) if row else None
+            return self._find_by_source(connection, source_url)
 
     def delete(self, recipe_id: int) -> None:
         with self._connection() as connection:
             connection.execute("DELETE FROM recipes WHERE id = ?", (recipe_id,))
             connection.execute(
+                "DELETE FROM recipe_comments WHERE recipe_id = ?", (recipe_id,)
+            )
+            connection.execute(
                 "DELETE FROM recipe_search WHERE rowid = ?", (recipe_id,)
             )
-
-    def rename(self, recipe_id: int, title: str) -> bool:
-        """Change a recipe's title and its search entry together."""
-        with self._connection() as connection:
-            cursor = connection.execute(
-                "UPDATE recipes SET title = ? WHERE id = ?", (title, recipe_id)
-            )
-            if not cursor.rowcount:
-                return False
-            connection.execute(
-                "UPDATE recipe_search SET title = ? WHERE rowid = ?",
-                (title, recipe_id),
-            )
-        return True
 
     def set_favorite(self, recipe_id: int, favorite: bool) -> bool:
         with self._connection() as connection:
@@ -244,6 +331,34 @@ class RecipeStore:
                 (int(favorite), recipe_id),
             )
         return bool(cursor.rowcount)
+
+    def add_comment(self, recipe_id: int, text: str) -> bool:
+        """Add a note to a recipe. Returns False if the recipe doesn't exist."""
+        with self._connection() as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM recipes WHERE id = ?", (recipe_id,)
+            ).fetchone()
+            if not exists:
+                return False
+            connection.execute(
+                "INSERT INTO recipe_comments (recipe_id, text, created_at) "
+                "VALUES (?, ?, ?)",
+                (recipe_id, text, _now().isoformat()),
+            )
+            self._refresh_search(connection, recipe_id)
+        return True
+
+    def delete_comment(self, recipe_id: int, comment_id: int) -> bool:
+        """Delete a note. Both IDs must match, so a note can't be hit by mistake."""
+        with self._connection() as connection:
+            cursor = connection.execute(
+                "DELETE FROM recipe_comments WHERE id = ? AND recipe_id = ?",
+                (comment_id, recipe_id),
+            )
+            if not cursor.rowcount:
+                return False
+            self._refresh_search(connection, recipe_id)
+        return True
 
     def recent(
         self,
@@ -323,10 +438,16 @@ class RecipeStore:
             )
 
     def export_json(self) -> str:
-        """Export all recipes. Identical data gives identical text, for backups."""
+        """Export all recipes and their notes, for downloads and the daily backup.
+
+        Identical data gives identical text, so an unchanged backup isn't committed.
+        """
         with self._connection() as connection:
             rows = connection.execute("SELECT * FROM recipes ORDER BY id").fetchall()
-        recipes = [asdict(self._recipe(row)) for row in rows]
+            recipes = [
+                asdict(self._recipe(row, self._comments(connection, row["id"])))
+                for row in rows
+            ]
         return json.dumps(
             {"version": EXPORT_VERSION, "recipes": recipes},
             ensure_ascii=False,
@@ -350,29 +471,34 @@ class RecipeStore:
                 raise RestoreError("Refusing to restore over existing recipes.")
             try:
                 for item in recipes:
-                    connection.execute(
-                        "INSERT INTO recipes (id, title, servings, source_url, "
-                        "ingredients, steps, flags, created_at, favorite) "
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (
-                            item["id"],
-                            item["title"],
-                            item["servings"],
-                            item["source_url"],
-                            json.dumps(item["ingredients"], ensure_ascii=False),
-                            json.dumps(item["steps"], ensure_ascii=False),
-                            json.dumps(item["flags"]),
-                            item["created_at"],
-                            int(bool(item.get("favorite", False))),
-                        ),
-                    )
-                    self._write_search(
-                        connection,
-                        item["id"],
-                        item["title"],
-                        item["ingredients"],
-                        item["steps"],
-                    )
+                    self._restore_recipe(connection, item)
             except (KeyError, TypeError, sqlite3.IntegrityError) as e:
                 raise RestoreError(f"That export is damaged: {e}") from e
         return len(recipes)
+
+    def _restore_recipe(
+        self, connection: sqlite3.Connection, item: dict[str, Any]
+    ) -> None:
+        connection.execute(
+            "INSERT INTO recipes (id, title, servings, source_url, "
+            "ingredients, steps, flags, created_at, favorite) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                item["id"],
+                item["title"],
+                item["servings"],
+                item["source_url"],
+                json.dumps(item["ingredients"], ensure_ascii=False),
+                json.dumps(item["steps"], ensure_ascii=False),
+                json.dumps(item["flags"]),
+                item["created_at"],
+                int(bool(item.get("favorite", False))),
+            ),
+        )
+        for comment in item.get("comments", []):
+            connection.execute(
+                "INSERT INTO recipe_comments (id, recipe_id, text, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (comment["id"], item["id"], comment["text"], comment["created_at"]),
+            )
+        self._refresh_search(connection, item["id"])
